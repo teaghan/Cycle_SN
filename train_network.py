@@ -14,7 +14,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.autograd import Variable
-from torchsummary import summary
 
 from training_fns import (parseArguments, weighted_masked_mse_loss, PayneObservedDataset, 
                           create_synth_batch, batch_to_cuda, train_iter, evaluation_checkpoint)
