@@ -21,7 +21,7 @@ This project aims to bridge the gap between two different sets of stellar spectr
 
 <p align="center">
   <img width="400" height="300" src="./figures/diagram.png">     
-  <img width="400" height="550" src="./figures/Architecture.png"> 
+  <img width="350" height="550" src="./figures/Architecture.png"> 
 </p>                               
                                      
     
