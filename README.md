@@ -7,8 +7,11 @@
 ## Dependencies
 
 -[PyTorch](http://pytorch.org/): `pip install torch torchvision`
+
 -[The Payne](https://github.com/tingyuansen/The_Payne): `pip install The_Payne`
+
 -h5py: `pip install h5py`
+
 -scikit-learn: `pip install -U scikit-learn`
 
 ## Generative and Interpretable Deep Learning for Stellar Spectra
