@@ -17,9 +17,11 @@ We first test our method with a "mock dataset" that is meant to mimic a real-wor
 
 Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
-  1. First, the line mask is created in [this notebook](./Create_Line_Mask.ipynb).
+  1. Download the original Payne training set from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
   
-  2. Next, we generate our mock observed dataset [here](./Generate_Observed_Payne_Domain.ipynb).
+  2. Next, the line mask is created in [this notebook](./Create_Line_Mask.ipynb).
+  
+  2. Now we can generate our mock observed dataset [here](./Generate_Observed_Payne_Domain.ipynb).
   
   3. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetopayne_nozsplit_1 configuration file](../configs/paynetopayne_nozsplit_1.ini). This model does not utilize the split latent-space method, only shared latent-variables.
   
