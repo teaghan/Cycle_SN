@@ -31,11 +31,9 @@ This project aims to bridge the gap between two different sets of stellar spectr
    - [Tricks to Train](#tricks-to-train)
    
 [Applications](#applications)
-
-   - [ASSET to Turbospec](#asset-to-turbospec)
-      - [Cross-Validation](#cross-validation)
-   - [ASSET to The Payne](#asset-to-the-payne)
-      - [Estimating Stellar Parameters](#estimating-stellar-parameters)
+      
+   - [New Lines Project](#new-lines)
+      - [Validation](#validation)   
    
 [Getting Started](#getting-started)
 
@@ -55,12 +53,7 @@ we applied a Convolutional Neural Network (CNN) to stellar spectra in order to e
 <p align="center"> <b>Figure 1</b>: T-SNE analyses to visualize the synthetic gap (left) and the bridging of this gap through data pre-processing (right).<p align="center"> 
   
   For the purposes of our previous work, this method was sufficient to allow us to apply our model - trained on synthetic data - to real, observed data. However, this is not the case for your average dataset because - in most situations - the synthetic spectra have not been modified a priori to match the observations. For instance, the observations will contain noise and instrumental features that are difficult to model in the synthetic spectra. Not only this, but there are physical features in spectra that we can not model perfectly in our synthetic generation, as well as information (ie. underlying physics) that is not completely understood (see Figure 2).
-  
-<p align="center">
-  <img width="800" height="400" src="../figures/synth_gap_example.png">
-</p>
 
-<p align="center"> <b>Figure 2</b>: An example of the synthetic gap. The synthetic spectrum is taken from the ASPCAP DR14 TURBOSPEC grid and has approximately the same stellar parameters as the observed spectrum shown.<p align="center"> 
   
   This gives rise to the motivation for the StarNet Cycle-GAN, where we aim to let a Neural Network (NN) *learn* the similarities and differences between two datasets (referred to as domains), and hence, the transformation from one domain to the other.
 
@@ -86,16 +79,10 @@ We would like to apply this same domain transfer, but to stellar spectra. For ex
 
 As mentioned, the main motivation for this project is to bridge the gap between synthetic spectra and observed spectra that have been obtained from a telescope. Currently, there are quite a few methods to generate a synthetic spectrum with a given set of physical parameters. These synthetic spectra represent - to our best understanding - what real spectra *should* look like if they were to have a given set of characteristics (ie. temperature, surface gravity, chemical composition, etc.). Therefore, we know how to translate stellar parameters, &Theta;, to synthetic spectra, &Chi;<sub>synth</sub>. What we want to do is to *learn* how to translate synthetic spectra to observed spectra, &Chi;<sub>obs</sub>, and hence, create a mapping from &Theta; to &Chi;<sub>obs</sub> (Figure 4). 
 
-<p align="center">
-  <img width="400" height="250" src="../figures/theta_to_xobs.png">
-</p>
-
-<p align="center"><b>Figure 4</b>: There are current methods to translate stellar parameters to synthetic spectra. What we aim to do is learn the mapping from synthetic spectra to observed spectra; creating a translation from stellar parameters all the way to observed spectra.<p align="center"> 
-
 We can assume that we have two separate domains of spectra that exist in separate spaces, we want to create a shared space for these two domains to be transferred into, called the *shared latent-space*. Once we have accomplished this, we can map spectra from one domain to the other by transferring the spectra into the shared space first.
 
 <p align="center">
-  <img width="400" height="300" src="../figures/shared_latent_space_diagram.png">
+  <img width="400" height="300" src="../figures/diagram.png">
 </p>
 
 <p align="center"><b>Figure 5</b>: Diagram of the proposed method.<p align="center"> 
@@ -114,32 +101,11 @@ Creating this shared-latent space is not trivial, and therefore, our method requ
 The remaining architecture consists of two encoders, two generators, and two discrimnators. **The encoders**, *E*<sub>synth</sub> and *E*<sub>obs</sub>, take spectra from their respective domains and map them to the 
 *latent-space*. We have actually split the latent-space to consist of shared latent variables, *Z*<sub>shared</sub>, that are common to both domains, and split latent variables, *Z*<sub>split</sub>, which represents information that is unique to the observed domain. The motivation for using the split latent variables in addition to the shared ones is that we know that the synthetic spectra can be described by a fixed set of variables and this information is also present in the observed spectra. However, two stars (in the observed domain) can have the same set of stellar parameters, &theta; (which have been used to produce our synthetic domain), yet vary in other important characteristics. Without separating the latent-space, this information would be lost once the spectra were mapped to the synthetic domain, making the [cycle-reconstruction](#cycle-reconstruction) impossible. Not only this, but the shared latent-space assumption would no longer be valid, because the model would try to imprint this information somewhere in the latent-space that is common between the two domains, yet we know that it would not be meaningful for the synthetic domain, and therefore, the latent representations for corresponding spectra in opposite domains would not be the same.
 
-<p align="center">
-  <img width="350" height="1000" src="../figures/encoder_A.png">     
-  <img width="500" height="1000" src="../figures/encoder_B.png">
-</p>
-
-<p align="center"> <b>Figure 7</b>: Encoder architectures.<p align="center"> 
-
 It may be tempting to impose a constraint on the shared latent-variables to have them represent the original stellar parameters used to produce the synthetic spectra, however, this idea has been attempted several times to no avail. We have found that imposing such a constraint works for dealing with one domain of spectra, but does not produce logical results when used to extract information from another (dissimilar) domain. That being said, this work is still experimental and we encourage others to try different ideas using this general framework.
 
 The **generators**, *G*<sub>synth</sub> and *G*<sub>obs</sub>, take the latent-representations as inputs and generate spectra into their respective domains. Of course, *G*<sub>synth</sub> only requires the shared latent-variables, while *G*<sub>obs</sub> takes both the shared *and* split latent-variables as inputs. Combinining all 4 subnetworks (*E*<sub>synth</sub>, *E*<sub>obs</sub>, *G*<sub>synth</sub>, and *G*<sub>obs</sub>) we have created domain mappings: (i) synthetic to synthetic (&Chi;<sub>synth->synth</sub>), (ii) observed to observed (&Chi;<sub>obs->obs</sub>), (iii) synthetic to observed (&Chi;<sub>synth->obs</sub>), (iv) and observed to synthetic (&Chi;<sub>obs->synth</sub>).
 
-<p align="center">
-  <img width="350" height="1000" src="../figures/decoder_A.png">     
-  <img width="500" height="1000" src="../figures/decoder_B.png">
-</p>
-
-<p align="center"> <b>Figure 8</b>: Generator architectures.<p align="center"> 
-
 However, in order for the cross-domain mappings to be *learned*, we need to use two **discriminators**, one for each domain. These discriminators learn to discern between spectra that truly belong in that domain (&Chi;<sub>obs</sub>, for instance) and spectra that have been cross-domain generated (&Chi;<sub>synth->obs</sub> in this example). These discriminators are used to accomplish the [generative adversarial process](#generative-adversarial-process) during training.
-
-<p align="center">
-  <img width="350" height="1000" src="../figures/discriminator_A.png">     
-  <img width="500" height="1000" src="../figures/discriminator_B.png">
-</p>
-
-<p align="center"> <b>Figure 9</b>: Discriminator architectures.<p align="center"> 
 
 ## Tasks
 
@@ -206,20 +172,19 @@ These difficulties are the main limitation of this method and likely make the mo
 
 ## Applications
 
-### ASSET to Turbospec
+### New Lines
 
-To test the capabilities of the StarNet Cycle-GAN, it is useful to first model a real-world application with two domains of spectra which we can confidently generate matching pairs. The best way to do this is produce two domains of synthetic spectra that have been generated through different means and pretend that one consists of observations. This is the current application that I am working on, where we are having the Cycle-GAN learn the translate between DR12 ASSET synthetic spectra and DR14 TURBOSPEC spectra.
-
-Using the ASSET spectra as the *synthetic domain* and TURBOSPEC as the *observed domain*, we are focusing only on the GK giants from these grids and adding a small amount of noise to the TURBOSPEC spectra, while also varying the micro-turbulent velocity (which is not a varying parameter of the ASSET spectra). 
+Using the Payne to generate spectra with a complete line list (the observed domain) and another Payne to generate spectra with some of these lines masked (the synthetic domain), we can train a cycle-gan to learn the transformation from one to the other and then differentiate the &Theta; to &Chi;<sub>obs</sub> mapping to determine which stellar parameter effects the *unkown* lines
 
 #### Code
 
-  - [Model configuration file](../architecture_configs/cycgan_1.ini)
-  - [Shell script](../compute-canada-goodies/python/jobs/todo/cycgan_1.sh) to launch the training
-  - [Training python script](../train_cycgan.py) for training the cycle-gan
-  - [Analysis notebook](../Analysis_turbo.ipynb) to evaluate the trained model
-
-#### Cross-Validation
+  - [Model configuration file](../architecture_configs/cycgan_2.ini)
+  - [Shell script](../compute-canada-goodies/python/jobs/todo/cycgan_2.sh) to launch the training
+  - [Training python script](../train_cycgan_payne.py) for training the cycle-gan
+  - [Analysis notebook](../Analysis_payne.ipynb) to evaluate the trained model
+  
+  
+#### Validation
 
 The great aspect of using two domains of spectra for which we know the stellar parameters a priori is that we can evaluate our method's ability to generate spectra by comparing matching spectra directly. This was done by generating a small cross-validation set of ~800 spectra that have the same stellar parameters and evaluating them throughout training. By analyzing the performance on the cross-validation set, selecting a good model architecture and set of hyper-parameters is doable. Knowing the stellar parameters beforehand is necessary for this, which isn't the case when dealing with an *actual* observed dataset. However, it may make sense to use a small subset of benchmark stars as the cross-validation set in this case. Note that the model is not actually trained on these spectra, but only evaluated to determine the best model.
 
@@ -234,7 +199,7 @@ Therefore, we take the cross-validation set, normalize each latent variable acro
 Combining these 4 *Z* scores with the 2 &Chi; scores - all evaluated on the cross-validation set - is the best method that I have found to evaluate the training of the model.
 
 <p align="center">
-  <img width="900" height="450" src="../figures/cycgan_9_progress.png">
+  <img width="900" height="450" src="../figures/paynetopayne_nozsplit_1_training_progress.png">
 </p>
 
 <p align="center"><b>Figure 13</b>: The training progress of the StarNet Cycle-GAN.<p align="center"> 
@@ -247,46 +212,12 @@ Using the trianing process above, we have built a model that succesfully learns 
 
 <p align="center"><b>Figure 14</b>: An example of two spectra from opposite domains that have the same stellar parameters. When mapping the synthetic spectrum to the observed domain, the resulting spectrum is a much better fit to the observed spectrum, as can be seen in the residual. <p align="center"> 
   
-<p align="center">
-  <img width="900" height="300" src="../figures/obs_to_synth.png">
-</p>
-
-<p align="center"><b>Figure 15</b>: An example of two spectra from opposite domains that have the same stellar parameters. When mapping the observed spectrum to the synthetic domain, the resulting spectrum is a much better fit to the synthetic spectrum, as can be seen in the residual. <p align="center"> 
-  
 To show this further, t-SNE analyses were conducted on both the spectra and the shared latent-represenations of our cross-validation set in Figure 16. The top right plot shows a comparison of the original spectra. Even though the spectra have the same stellar parameters and occupy the same wavelength region, there is clearly a gap between the two. However, when these spectra are mapped to the opposite domains and compared to the original spectra (the middle row of Figure 16), the match is much better. This is accomplished through building a shared latent-space, which is exemplified in the top right plot. The bottom two plots are the cycle-reconstructed spectra compared to the original spectra.
-  
 <p align="center">
   <img width="400" height="650" src="../figures/tsne.png">
 </p>
 
 <p align="center"><b>Figure 16</b>: t-SNE analyses on the cross-validation set. <p align="center"> 
-
-
-### ASSET to The Payne
-
-Using ASSET as our synthetic dataset and the Payne as the observed dataset, we can start to vary a lot more interesting parameters in the observed domain. The same procedure that was undergone for turbospec [described above](#asset-to-turbospec) was applied to spectra generated from the Payne.
-
-#### Code
-
-  - [Model configuration file](../architecture_configs/cycgan_2.ini)
-  - [Shell script](../compute-canada-goodies/python/jobs/todo/cycgan_2.sh) to launch the training
-  - [Training python script](../train_cycgan_payne.py) for training the cycle-gan
-  - [Analysis notebook](../Analysis_payne.ipynb) to evaluate the trained model
-  - [Estimating stellar parameters](../Estimating_Stellar_Params_payne.ipynb) notebook
-  
-#### Estimating Stellar Parameters
-
-Because the Payne spectra were generated from a continuous distribution, the trained cycle-gan allowed for the estimation of stellar parameters by performing a least-squares fitting. This can be done in a variety of ways. The most logical is to perform the least-squares fitting between a given observed spectrum, &Chi;<sub>obs</sub>, and those produced through *G*<sub>obs</sub>*E*<sub>synth</sub>(*G*<sub>&theta;</sub>(&theta;))) (seen in Figure 17). This [notebook](../Estimating_Stellar_Params_payne.ipynb) shows how this is done along with other methods.
-
-<p align="center">
-  <img width="500" height="450" src="../figures/split_infer.png">
-</p>
-
-<p align="center"><b>Figure 17</b>: The method for estimating stellar parameters.<p align="center"> 
-
-### New Lines
-
-Using the Payne to generate spectra with a complete line list (the observed domain) and another Payne to generate spectra with some of these lines masked (the synthetic domain), we can train a cycle-gan to learn the transformation from one to the other and then differentiate the &Theta; to &Chi;<sub>obs</sub> mapping to determine which stellar parameter effects the *unkown* lines
 
 ### The Payne to *actual* observed data (maybe DR14 or DR15?)
 
@@ -301,13 +232,3 @@ Using the Payne to generate spectra with a complete line list (the observed doma
 Instability of training
 
 Parameter distribution.
-
-## Getting Started ##
-
-This repository takes you through the steps of training and evaluating the StarNET Cycle-GAN.
-    
-  1. First, the model architecture and hyper-parameters are set using the [Setup Architecture Notebook](../Setup_Architecture.ipynb). This creates a configuration file in [the config directory](../architecture_configs) and also a shell script that can be used to run the model on compute-canada that is stored within [the compute canada directory](../compute-canada-goodies).
-  
-  2. Go to `compute-canada-goodies/python/jobs/todo/`, run the `chmod u+x *` command to make the script executable, then launch the script you created. This will train the cycle-gan, which - with my current set-up - takes about 90 minutes on the GPU. Of course, you will have to be allocated to a GPU within your own terminal.
-  
-  3. The [Analysis notebook](../Analysis_turbo.ipynb) takes you through the steps of analyzing the Cycle-GAN.
