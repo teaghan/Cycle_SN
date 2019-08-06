@@ -8,7 +8,6 @@ import os
 import glob
 import time
 import configparser
-from collections import OrderedDict
 from distutils import util
 
 import torch
