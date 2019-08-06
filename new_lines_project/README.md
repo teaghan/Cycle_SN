@@ -21,7 +21,7 @@ Before beginning training or utilizing Cycle-StarNet, I recommend reading the [t
   
   2. Next, we generate our mock observed dataset [here](./Generate_Observed_Payne_Domain.ipynb).
   
-  3. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetopayne_nozsplit_1 configuration file](../configs/configspaynetopayne_nozsplit_1.ini). This model does not utilize the split latent-space method, only shared latent-variables.
+  3. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetopayne_nozsplit_1 configuration file](../configs/paynetopayne_nozsplit_1.ini). This model does not utilize the split latent-space method, only shared latent-variables.
   
   2. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py configspaynetopayne_nozsplit_1 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training.
   
