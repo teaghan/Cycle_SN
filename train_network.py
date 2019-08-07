@@ -22,6 +22,7 @@ from network import CycleSN
 from The_Payne.utils import read_in_neural_network
 
 np.random.seed(1)
+torch.manual_seed(1)
 
 # Check for GPU
 use_cuda = torch.cuda.is_available()
@@ -29,6 +30,7 @@ if use_cuda:
     print('Using GPU!')
     #dtype = torch.cuda.FloatTensor
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
+    torch.cuda.manual_seed(1)
 else:
     #dtype = torch.FloatTensor
     torch.set_default_tensor_type('torch.FloatTensor')
@@ -90,26 +92,6 @@ print('\nBuilding networks...')
 model = CycleSN(architecture_config, emulator_coeffs, use_cuda=use_cuda)
 
 # Display model architectures
-'''
-print('\n\nSYNTHETIC EMULATOR ARCHITECTURE:\n')
-summary(model.emulator, input_size=(25,))
-print('\n\nENCODER_synth and ENCODER_obs ARCHITECTURE:\n')
-summary(model.encoder_synth, input_size=(1, int(architecture_config['num_pixels'])))
-print('\n\nENCODER_sh ARCHITECTURE:\n')
-summary(model.encoder_sh, input_size=model.enc_interm_shape)
-if model.use_split:
-    print('\n\nENCODER_sp ARCHITECTURE:\n')
-    summary(model.encoder_sp, input_size=model.enc_interm_shape)
-    print('\n\nDECODER_sp ARCHITECTURE:\n')
-    summary(model.decoder_sp, input_size=model.z_sp_shape)
-print('\n\nDECODER_sh ARCHITECTURE:\n')
-summary(model.decoder_sh, input_size=model.z_sh_shape)
-print('\n\nDECODER_synth and DECODER_obs ARCHITECTURE:\n')
-summary(model.decoder_synth, input_size=model.dec_interm_shape)
-print('\n\nDISCRIM_synth and DISCRIM_obs ARCHITECTURE:\n')
-summary(model.discriminator_synth, input_size=[(1, int(architecture_config['num_pixels'])),
-                                               model.z_sh_shape])
-'''
 print('\n\nSYNTHETIC EMULATOR ARCHITECTURE:\n')
 print(model.emulator)
 print('\n\nENCODER_synth and ENCODER_obs ARCHITECTURE:\n')
@@ -183,6 +165,8 @@ else:
     # Load optimizer states
     optimizer_rec_and_gen.load_state_dict(checkpoint['optimizer_rec_and_gen'])
     optimizer_dis.load_state_dict(checkpoint['optimizer_dis'])
+    lr_scheduler_rg.load_state_dict(checkpoint['lr_scheduler_rg'])
+    lr_scheduler_dis.load_state_dict(checkpoint['lr_scheduler_dis'])
     
     # Load model weights
     model.load_state_dict(checkpoint['cycle_model'])
@@ -309,12 +293,18 @@ def train_network(cur_iter):
                             'losses': losses,
                             'optimizer_rec_and_gen' : optimizer_rec_and_gen.state_dict(),
                             'optimizer_dis' : optimizer_dis.state_dict(),
+                            'lr_scheduler_rg' : lr_scheduler_rg.state_dict(),
+                            'lr_scheduler_dis' : lr_scheduler_dis.state_dict(),
                             'cycle_model' : model.state_dict()}, 
                             model_filename)
                 
                 cp_start_time = time.time()
+                
+            if cur_iter>total_batch_iters:
+                break
                     
             
 # Run the training
 if __name__=="__main__":
     train_network(cur_iter)
+    print('\nTraining complete.')
