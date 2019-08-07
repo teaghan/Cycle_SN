@@ -1,6 +1,6 @@
 # The Cycle-StarNet New Lines Project
 
-One application of the Cycle-StarNet is to utilize the correlations found by the network in order to fill in the missing pieces in our theoretical models. To do this, we train the Cycle-StarNet with a _synthetic domain_ and _observed domain_. The network will learn correlations between known information (i.e. the absorption lines in our synthetic spectra) and currently unknown information (for instance, spectral lines in our observed spectra for which we do not know the source). Since our synthetic spectra are generated from stellar labels (including chemical abundances) we form a link between these chemical abundances and the unidentified absorption lines. Next, we investigate the correlations that the network has found to extract intuition from the model and possibly identify these missing pieces in our theoretical models.
+One application of the Cycle-StarNet is to utilize the correlations found by the network in order to fill in the missing pieces in our theoretical models. To do this, we train the Cycle-StarNet with a _synthetic domain_ and an _observed domain_. The network will learn correlations between known information (i.e. the absorption lines in our synthetic spectra) and currently unknown information (for instance, spectral lines in our observed spectra for which we do not know the source). Since our synthetic spectra are generated from stellar labels (including chemical abundances) we form a link between these chemical abundances and the unidentified absorption lines. Next, we investigate the correlations that the network has found to extract intuition from the model and possibly identify these missing pieces in our theoretical models.
 
 ### Contents
 
@@ -17,7 +17,7 @@ We first test our method with a "mock dataset" that is meant to mimic a real-wor
 
 Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
-  1. Download the original Payne training set from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
+  1. Download the original Payne training set (mock_all_spectra_no_noise_resample_prior_large.npz) from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
   
   2. Next, the line mask is created in [this notebook](./Create_Line_Mask.ipynb).
   
