@@ -42,6 +42,7 @@ verbose_iters = args.verbose_iters
 cp_time = args.cp_time
 data_dir = args.data_dir
 fixed_vmacro = args.fixed_vmacro
+obs_domain = args.obs_domain
 
 # Directories
 cur_dir = os.path.dirname(__file__)
@@ -173,13 +174,35 @@ else:
     
 # DATA
 
+if mask_synth_lines:
+    print('Using line mask.')
+    # Load line mask
+    line_mask = np.load(data_dir+'mock_missing_lines.npz')['total_mask']
+    line_mask = torch.from_numpy(np.array(line_mask, dtype=np.uint8))
+else:
+    # Don't use line mask
+    line_mask = None
+
+# Define some domain unique variables for data loading
+if obs_domain.lower()=='payne':
+    obs_domain = 'PAYNE'
+    # Use ones for the spectra masks in the loss function
+    collect_x_mask = False
+    # Use randomly generated spectra as validation set
+    val_dataset = 'val'
+elif obs_domain.lower()=='apogee':
+    
+    obs_domain = 'APOGEE'
+    # Use aspcap mask spectra
+    collect_x_mask = True
+    # Use cluster stars as validation set
+    val_dataset = 'cluster'
+else:
+    raise argparse.ArgumentTypeError('payne or apogee abserved domain expected.')
+    
 # Normalization data for the spectra
 x_mean, x_std = np.load(spectra_norm_file)
 
-# Load line mask
-line_mask = np.load(data_dir+'mock_missing_lines.npz')['total_mask']
-line_mask = torch.from_numpy(np.array(line_mask, dtype=np.uint8))
-    
 # Load the Payne labels
 
 # [Teff, Logg, Vturb [km/s],
@@ -195,13 +218,14 @@ labels_payne = np.load(data_dir+'mock_all_spectra_no_noise_resample_prior_large.
 perturbations = [100., 0.1, 0.2, *np.repeat(0.1, 20), 5., 2.]
 
 # Training dataset to loop through
-obs_dataset = PayneObservedDataset(data_file_obs, obs_domain='PAYNE', dataset='train', 
-                                   x_mean=x_mean, x_std=x_std, collect_x_mask=False)
+obs_dataset = PayneObservedDataset(data_file_obs, obs_domain=obs_domain, dataset='train', 
+                                   x_mean=x_mean, x_std=x_std, collect_x_mask=collect_x_mask)
 obs_train_dataloader = DataLoader(obs_dataset, batch_size=batchsize, shuffle=True, num_workers=6)
 
 # Validation set that consists of matching pairs in the synthetic and observed domains
-obs_val_set = obs_dataset.__getitem__(1000, dataset='val', return_labels=True, collect_preceeding=True) 
+obs_val_set = obs_dataset.__getitem__(1000, dataset=val_dataset, return_labels=True, collect_preceeding=True) 
 synth_val_set = create_synth_batch(model, x_mean, x_std, y=obs_val_set['y'], line_mask=line_mask)
+
 # Switch to GPU
 if use_cuda:
     obs_val_set = batch_to_cuda(obs_val_set)
@@ -219,14 +243,15 @@ def train_network(cur_iter):
         
         for obs_train_batch in obs_train_dataloader:
             # Create synthetic batch from the distribution of the original Payne training set.
-            # We will use the "line_mask" to set some lines to the continuum.
-            # We will also fix the vmacro labels to 15km/s.
+            # We will potentially use the "line_mask" to set some lines to the continuum.
+            # We will also potentially fix the vmacro labels to 15km/s.
             synth_train_batch = create_synth_batch(model, x_mean, x_std, 
                                                    batchsize=len(obs_train_batch['x']),
                                                    line_mask=line_mask, 
                                                    labels_payne=labels_payne, 
                                                    perturbations=perturbations, 
                                                    fixed_vmacro=fixed_vmacro)
+
             if use_cuda:
                 obs_train_batch = batch_to_cuda(obs_train_batch)
                 synth_train_batch = batch_to_cuda(synth_train_batch)

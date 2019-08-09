@@ -60,6 +60,10 @@ def parseArguments():
                         help="Fix vmacro to 15km/s in synthetic domain.", 
                         type=str, default=False)
     
+    # Observed dataset
+    parser.add_argument("-obs", "--obs_domain", help="Observed domain.", 
+                        type=str, default='PAYNE')
+    
     # Parse arguments
     args = parser.parse_args()
     
@@ -68,6 +72,10 @@ def parseArguments():
     return args
 
 def weighted_masked_mse_loss(pred, target, error, mask):
+    '''
+    Mean-squared-error weighted by the error on the target 
+    and using a mask for the bad pixels in the target.
+    '''
     return torch.mean(((pred - target)*mask/error) ** 2)
 
 def create_synth_batch(model, x_mean, x_std, y=None, batchsize=8,
