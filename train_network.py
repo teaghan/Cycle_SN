@@ -28,11 +28,9 @@ torch.manual_seed(1)
 use_cuda = torch.cuda.is_available()
 if use_cuda:
     print('Using GPU!')
-    #dtype = torch.cuda.FloatTensor
     torch.set_default_tensor_type('torch.cuda.FloatTensor')
     torch.cuda.manual_seed(1)
 else:
-    #dtype = torch.FloatTensor
     torch.set_default_tensor_type('torch.FloatTensor')
 
 # Collect the command line arguments
@@ -78,8 +76,12 @@ loss_weight_rec = float(config['TRAINING']['loss_weight_rec'])
 loss_weight_cc = float(config['TRAINING']['loss_weight_cc'])
 loss_weight_gen = float(config['TRAINING']['loss_weight_gen'])
 loss_weight_dis = float(config['TRAINING']['loss_weight_dis'])
-lr_decay_batch_iters = float(config['TRAINING']['lr_decay_batch_iters'])
-lr_decay = float(config['TRAINING']['lr_decay'])
+#lr_decay_batch_iters_rg = float(config['TRAINING']['lr_decay_batch_iters_rg'])
+#lr_decay_batch_iters_dis = float(config['TRAINING']['lr_decay_batch_iters_dis'])
+lr_decay_batch_iters_rg = eval(config['TRAINING']['lr_decay_batch_iters_rg'])
+lr_decay_batch_iters_dis = eval(config['TRAINING']['lr_decay_batch_iters_dis'])
+lr_decay_rg = float(config['TRAINING']['lr_decay_rg'])
+lr_decay_dis = float(config['TRAINING']['lr_decay_dis'])
 total_batch_iters = float(config['TRAINING']['total_batch_iters'])
 use_real_as_true = bool(util.strtobool(config['TRAINING']['use_real_as_true']))
 mask_synth_lines = bool(util.strtobool(config['TRAINING']['mask_synth_lines']))
@@ -133,13 +135,18 @@ else:
 optimizer_dis = torch.optim.Adam([{'params': model.discriminator_synth.parameters(), "lr": learning_rate_discriminator},
                                   {'params': model.discriminator_obs.parameters(), "lr": learning_rate_discriminator}],
                                  weight_decay = 0, betas=(0.5, 0.999))
-lr_scheduler_rg = torch.optim.lr_scheduler.StepLR(optimizer_rec_and_gen, 
-                                                  step_size=lr_decay_batch_iters, 
-                                                  gamma=lr_decay)
-lr_scheduler_dis = torch.optim.lr_scheduler.StepLR(optimizer_dis, 
-                                                   step_size=lr_decay_batch_iters, 
-                                                   gamma=lr_decay)
-
+#lr_scheduler_rg = torch.optim.lr_scheduler.StepLR(optimizer_rec_and_gen, 
+#                                                  step_size=lr_decay_batch_iters_rg, 
+#                                                  gamma=lr_decay_rg)
+lr_scheduler_rg = torch.optim.lr_scheduler.MultiStepLR(optimizer_rec_and_gen, 
+                                                       milestones=lr_decay_batch_iters_rg, 
+                                                       gamma=lr_decay_rg)
+#lr_scheduler_dis = torch.optim.lr_scheduler.StepLR(optimizer_dis, 
+#                                                   step_size=lr_decay_batch_iters_dis, 
+#                                                   gamma=lr_decay_dis)
+lr_scheduler_dis = torch.optim.lr_scheduler.MultiStepLR(optimizer_dis, 
+                                                       milestones=lr_decay_batch_iters_dis, 
+                                                       gamma=lr_decay_dis)
 # Loss functions
 gan_loss = nn.BCELoss()
 distance_loss = weighted_masked_mse_loss
@@ -194,6 +201,7 @@ elif obs_domain.lower()=='apogee':
     
     obs_domain = 'APOGEE'
     # Use aspcap mask spectra
+    #collect_x_mask = True
     collect_x_mask = True
     # Use cluster stars as validation set
     val_dataset = 'cluster'

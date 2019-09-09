@@ -56,6 +56,9 @@ def plot_progress(losses, y_lims=[(0,0.05),(0,15),(0,0.13)], use_split=True, sav
          np.min(losses['zsh_obs_val']), np.min(losses['zsh_val']), end=' ')
     if use_split:
         print(np.min(losses['zsp_val']))
+        
+    print('\n', np.min(losses['rec_synth']), np.min(losses['rec_obs']), np.min(losses['cc_synth']), 
+         np.min(losses['cc_obs']))
 
     for i, ax in enumerate([ax1, ax2, ax3]):
         ax.set_xlabel('Batch Iterations',fontsize=25)

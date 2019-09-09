@@ -77,6 +77,7 @@ def weighted_masked_mse_loss(pred, target, error, mask):
     and using a mask for the bad pixels in the target.
     '''
     return torch.mean(((pred - target)*mask/error) ** 2)
+    #return torch.mean(((pred - target)/error) ** 2)
 
 def create_synth_batch(model, x_mean, x_std, y=None, batchsize=8,
                        line_mask=None, labels_payne=None, perturbations=None, 
@@ -322,6 +323,174 @@ def train_iter(model, obs_train_batch, synth_train_batch, distance_loss, gan_los
     losses_cp['dis_fake_obs'].append(loss_dis_fake_obs.data.item())
     
     return losses_cp
+
+def train_iter2(model, obs_train_batch, synth_train_batch, distance_loss, gan_loss, 
+               loss_weight_rec, loss_weight_cc, loss_weight_gen, loss_weight_dis,
+               optimizer_rec_and_gen, optimizer_dis, lr_scheduler_rg, lr_scheduler_dis, 
+               use_real_as_true, losses_cp, use_cuda):
+    
+    # Discriminator targets
+    batch_ones = torch.ones((len(obs_train_batch['x']), 1), dtype=torch.float32)
+    batch_zeros = torch.zeros((len(obs_train_batch['x']), 1), dtype=torch.float32)
+
+    # Switch to GPU
+    if use_cuda:
+        batch_ones = batch_ones.cuda()
+        batch_zeros = batch_zeros.cuda()
+        
+    # Train an iteration on the discriminator processes
+    model.dis_train_mode()
+    
+    # Encoding
+    zsh_synth = model.synth_to_z(synth_train_batch['x'].detach())
+    if model.use_split:
+        zsh_obs, zsp_obs = model.obs_to_z(obs_train_batch['x'].detach())
+    else:
+        zsh_obs = model.obs_to_z(obs_train_batch['x'].detach())
+        
+    # Reconstruction
+    x_synthsynth = model.z_to_synth(zsh_synth)
+    if model.use_split:
+        x_obsobs = model.z_to_obs(zsh_obs, zsp_obs)
+    else:
+        x_obsobs = model.z_to_obs(zsh_obs)
+
+    # Cross-domain mapping
+    if model.use_split:
+        # Here we use the z_split from x_obs to generate x_synthobs
+        x_synthobs = model.z_to_obs(zsh_synth, zsp_obs)
+    else:
+        x_synthobs = model.z_to_obs(zsh_synth)
+    x_obssynth = model.z_to_synth(zsh_obs)
+
+    # Discriminator predictions on true samples
+    if use_real_as_true:
+        c_synth_real = model.critic_synth(synth_train_batch['x'].detach(), zsh_synth.detach())
+        if model.use_split:
+            c_obs_real = model.critic_obs(obs_train_batch['x'].detach(), zsh_obs.detach(), zsp_obs.detach())
+        else:
+            c_obs_real = model.critic_obs(obs_train_batch['x'].detach(), zsh_obs.detach())
+    else:
+        c_synth_real = model.critic_synth(x_synthsynth.detach(), zsh_synth.detach())
+        if model.use_split:
+            c_obs_real = model.critic_obs(x_obsobs.detach(), zsh_obs.detach(), zsp_obs.detach())
+        else:
+            c_obs_real = model.critic_obs(x_obsobs.detach(), zsh_obs.detach())
+    # Discriminator predictions on generated samples
+    c_synth_fake = model.critic_synth(x_obssynth.detach(), zsh_obs.detach())
+    if model.use_split:
+        c_obs_fake = model.critic_obs(x_synthobs.detach(), zsh_synth.detach(), zsp_synthobs.detach())
+    else:
+        c_obs_fake = model.critic_obs(x_synthobs.detach(), zsh_synth.detach())
+
+    # Evaluate losses
+    loss_dis_real_synth = gan_loss(c_synth_real, batch_ones)
+    loss_dis_real_obs = gan_loss(c_obs_real, batch_ones)
+    loss_dis_fake_synth = gan_loss(c_synth_fake, batch_zeros)
+    loss_dis_fake_obs = gan_loss(c_obs_fake, batch_zeros)
+
+    loss_total_dis = loss_weight_dis*(loss_dis_real_synth + loss_dis_real_obs +
+                                      loss_dis_fake_synth + loss_dis_fake_obs)
+
+    # Back propogate
+    optimizer_dis.zero_grad()
+    loss_total_dis.backward()
+    # Adjust network weights
+    optimizer_dis.step()    
+    # Adjust learning rate
+    lr_scheduler_dis.step()
+
+    # Save losses
+    losses_cp['dis_real_synth'].append(loss_dis_real_synth.data.item())
+    losses_cp['dis_real_obs'].append(loss_dis_real_obs.data.item())
+    losses_cp['dis_fake_synth'].append(loss_dis_fake_synth.data.item())
+    losses_cp['dis_fake_obs'].append(loss_dis_fake_obs.data.item())    
+        
+
+    # Train an iteration on the reconstruction and generator processes
+    model.rec_and_gen_train_mode()
+
+    # Encoding
+    zsh_synth = model.synth_to_z(synth_train_batch['x'].detach())
+    if model.use_split:
+        zsh_obs, zsp_obs = model.obs_to_z(obs_train_batch['x'].detach())
+    else:
+        zsh_obs = model.obs_to_z(obs_train_batch['x'].detach())
+
+    # Reconstruction
+    x_synthsynth = model.z_to_synth(zsh_synth)
+    if model.use_split:
+        x_obsobs = model.z_to_obs(zsh_obs, zsp_obs)
+    else:
+        x_obsobs = model.z_to_obs(zsh_obs)
+
+    # Cross-domain mapping
+    if model.use_split:
+        # Here we use the z_split from x_obs to generate x_synthobs
+        x_synthobs = model.z_to_obs(zsh_synth, zsp_obs)
+    else:
+        x_synthobs = model.z_to_obs(zsh_synth)
+    x_obssynth = model.z_to_synth(zsh_obs)
+
+    # Cycle-Reconstruction
+    zsh_obssynth = model.synth_to_z(x_obssynth)
+    if model.use_split:
+        zsh_synthobs, zsp_synthobs = model.obs_to_z(x_synthobs)
+        # Here we again use the original z_split from x_obs to cycle-reconstuct x_obssynthobs
+        x_obssynthobs = model.z_to_obs(zsh_obssynth, zsp_obs)
+    else:
+        zsh_synthobs = model.obs_to_z(x_synthobs)
+        x_obssynthobs = model.z_to_obs(zsh_obssynth)
+    x_synthobssynth = model.z_to_synth(zsh_synthobs)
+
+    # Run discriminator predictions
+    c_synth_fake = model.critic_synth(x_obssynth, zsh_obs)
+    if model.use_split:
+        c_obs_fake = model.critic_obs(x_synthobs, zsh_synth, zsp_synthobs)
+    else:
+        c_obs_fake = model.critic_obs(x_synthobs, zsh_synth)
+
+    # Evaluate losses
+    loss_rec_synth = distance_loss(pred=x_synthsynth, 
+                                   target=synth_train_batch['x'], 
+                                   error=synth_train_batch['x_err'], 
+                                   mask=synth_train_batch['x_msk'])
+    loss_rec_obs = distance_loss(pred=x_obsobs, 
+                                 target=obs_train_batch['x'], 
+                                 error=obs_train_batch['x_err'], 
+                                 mask=obs_train_batch['x_msk'])
+    loss_cc_synth = distance_loss(pred=x_synthobssynth, 
+                                  target=synth_train_batch['x'], 
+                                  error=synth_train_batch['x_err'], 
+                                  mask=synth_train_batch['x_msk'])
+    loss_cc_obs = distance_loss(pred=x_obssynthobs, 
+                                target=obs_train_batch['x'], 
+                                error=obs_train_batch['x_err'], 
+                                mask=obs_train_batch['x_msk'])
+    loss_gen_synth = gan_loss(c_synth_fake, batch_ones)
+    loss_gen_obs = gan_loss(c_obs_fake, batch_ones)
+    loss_total_rec_gen = (loss_weight_rec*(loss_rec_synth + loss_rec_obs) + 
+                          loss_weight_cc*(loss_cc_synth + loss_cc_obs) +
+                          loss_weight_gen*(loss_gen_synth + loss_gen_obs))
+
+    # Back propogate
+    optimizer_rec_and_gen.zero_grad()
+    loss_total_rec_gen.backward()
+    # Adjust network weights
+    optimizer_rec_and_gen.step()    
+    # Adjust learning rate
+    lr_scheduler_rg.step()
+
+    # Save losses
+    losses_cp['rec_synth'].append(loss_rec_synth.data.item())
+    losses_cp['rec_obs'].append(loss_rec_obs.data.item())
+    losses_cp['cc_synth'].append(loss_cc_synth.data.item())
+    losses_cp['cc_obs'].append(loss_cc_obs.data.item())
+    losses_cp['gen_synth'].append(loss_gen_synth.data.item())
+    losses_cp['gen_obs'].append(loss_gen_obs.data.item())
+    
+    return losses_cp
+
 
 def evaluation_checkpoint(model, obs_val_set, synth_val_set, distance_loss, losses_cp):
     # Evaluate validation set

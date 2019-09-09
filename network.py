@@ -52,6 +52,16 @@ def compute_out_size(in_size, mod):
     f = mod.forward(autograd.Variable(torch.Tensor(1, *in_size)))
     return f.size()[1:]
 
+def same_padding(input_pixels, filter_len, stride=1):
+    effective_filter_size_rows = (filter_len - 1) + 1
+    output_pixels = (input_pixels + stride - 1) // stride
+    padding_needed = max(0, (output_pixels - 1) * stride + 
+                         effective_filter_size_rows - input_pixels)
+    padding = max(0, (output_pixels - 1) * stride +
+                        (filter_len - 1) + 1 - input_pixels)
+    rows_odd = (padding % 2 != 0)    
+    return padding // 2
+
 
 def build_encoder(input_filts, conv_filts, conv_strides, conv_filt_lens, activation,
                   out_norm=True, z_filts=25, output_z=True, init=True, use_cuda=True):
@@ -109,15 +119,15 @@ def build_decoder(input_filts, conv_filts, conv_strides, conv_filt_lens, activat
     return model
 
 def build_discriminator(input_filts, conv_filts, conv_strides, conv_filt_lens, activation,
-                        init=True, use_cuda=True):
+                        padding=0, init=True, use_cuda=True):
     
     layers = []
     
     # Spectra conv layers
     for filts, strides, filter_length in zip(conv_filts, conv_strides, conv_filt_lens):
-        layers.append(nn.Conv1d(input_filts, filts, filter_length, strides))
-        layers.append(activation)
-        input_filts = filts
+            layers.append(nn.Conv1d(input_filts, filts, filter_length, strides, padding=padding))
+            layers.append(activation)
+            input_filts = filts
        
     model = torch.nn.Sequential(*layers)
     
@@ -146,19 +156,27 @@ class Discrimninator(nn.Module):
                                                    conv_filt_lens_x, 
                                                    activ_fn, init=init,
                                                    use_cuda=use_cuda)
+        # Padding for latent-variables to keep the same shape
+        if conv_filt_lens_z[0]>1:
+            padding = same_padding(z_dim, conv_filt_lens_z[0], stride=conv_strides_z[0])
+        else:
+            padding = 0
+        
         # Layers applied to latent variables
         self.discriminator_z = build_discriminator(input_filts_z, 
                                                    conv_filts_z, 
                                                    conv_strides_z, 
                                                    conv_filt_lens_z, 
-                                                   activ_fn, init=init,
+                                                   activ_fn, 
+                                                   padding=padding, init=init,
                                                    use_cuda=use_cuda)
         # Layers applied to combined output of the previous two sets of layers
         self.discriminator_c = build_discriminator(conv_filts_x[-1]+conv_filts_z[-1], 
                                                    conv_filts_c, 
                                                    conv_strides_c, 
                                                    conv_filt_lens_c, 
-                                                   activ_fn, init=init,
+                                                   activ_fn, 
+                                                   padding=padding, init=init,
                                                    use_cuda=use_cuda)
         
         # Calculate output sizes
@@ -277,16 +295,26 @@ class CycleSN(nn.Module):
                                             conv_filt_lens_ae_sp, 
                                             activ_fn, output_x=False, init=True,
                                             use_cuda=use_cuda)
-        self.decoder_synth = build_decoder(conv_filts_ae_sh[0], 
+        # Calculate the number of input filters for the domain decoders
+        if len(conv_filts_ae_sh)>0:
+            dec_synth_z_filts = conv_filts_ae_sh[0]
+            if self.use_split:
+                dec_obs_z_filts = conv_filts_ae_sh[0]+conv_filts_ae_sp[0]
+            else:
+                dec_obs_z_filts = conv_filts_ae_sh[0]
+        else:
+            dec_synth_z_filts = shared_z_filters
+            if self.use_split:
+                dec_obs_z_filts = shared_z_filters+split_z_filters
+            else:
+                dec_obs_z_filts = shared_z_filters
+        self.decoder_synth = build_decoder(dec_synth_z_filts, 
                                            conv_filts_ae_dom, 
                                            conv_strides_ae_dom, 
                                            conv_filt_lens_ae_dom, 
                                            activ_fn, output_x=True, init=True,
                                            use_cuda=use_cuda)
-        if self.use_split:
-            dec_obs_z_filts = conv_filts_ae_sh[0]+conv_filts_ae_sp[0]
-        else:
-            dec_obs_z_filts = conv_filts_ae_sh[0]
+        
         
         self.decoder_obs = build_decoder(dec_obs_z_filts, 
                                          conv_filts_ae_dom, 
@@ -301,7 +329,7 @@ class CycleSN(nn.Module):
         if self.use_split:
             self.z_sp_shape = compute_out_size(self.enc_interm_shape, self.encoder_sp)
         self.dec_interm_shape = compute_out_size(self.z_sh_shape, self.decoder_sh)
-        
+
         # Build discriminator networks
         self.discriminator_synth = Discrimninator(self.z_sh_shape[0],
                                                     num_pixels,
@@ -321,7 +349,7 @@ class CycleSN(nn.Module):
             dis_obs_z_filts = self.z_sh_shape[0]+self.z_sp_shape[0]
         else:
             dis_obs_z_filts = self.z_sh_shape[0]
-        
+            
         self.discriminator_obs = Discrimninator(dis_obs_z_filts,
                                                     num_pixels,
                                                     self.z_sh_shape[1],
