@@ -30,3 +30,17 @@ Before beginning training or utilizing Cycle-StarNet, I recommend reading the [t
   6. The [Domain Transfer Analysis notebook](./Domain_Transfer_paynetopayne_nozsplit.ipynb) takes you through the steps of analyzing the StarNet-Cycle to ensure that the model can transfer spectra from one domain to the other.
   
   7. Lastly, the [Tracking New Lines notebook](./Track_Lines_paynetopayne_nozsplit.ipynb) shows the method used to identify the missing lines.
+
+## DR14 (in progress)
+
+### Code
+
+Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
+  
+  1. Download the original Payne training set (mock_all_spectra_no_noise_resample_prior_large.npz) and the aspcap data file (aspcapStar_dr14.h5) from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
+  
+  2. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetodr14_nozsplit_53 configuration file](../configs/paynetodr14_nozsplit_53.ini). This model does not utilize the split latent-space method, only shared latent-variables.
+  
+  3. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py paynetodr14_nozsplit_53 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training. (Note that the training takes approximately 30 hours on GPU). Alternatively, if operating on compute-canada see [this script](../scripts/paynetodr14_nozsplit_53.sh) for the training. It allows faster data loading throughout training.
+  
+  4. Lastly, the [Tracking New Lines notebook](./Anaylze_dr14.ipynb) shows the method used to identify the missing lines.
