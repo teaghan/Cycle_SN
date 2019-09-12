@@ -201,7 +201,6 @@ elif obs_domain.lower()=='apogee':
     
     obs_domain = 'APOGEE'
     # Use aspcap mask spectra
-    #collect_x_mask = True
     collect_x_mask = True
     # Use cluster stars as validation set
     val_dataset = 'cluster'
