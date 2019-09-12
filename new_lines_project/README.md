@@ -8,6 +8,10 @@ One application of the Cycle-StarNet is to utilize the correlations found by the
 
    - [Getting Started](#code)
    
+[DR14 Dataset](#dr14-(in-progress))
+
+   - [Getting Started](#code2)
+   
 
 ## Mock Dataset
 
@@ -33,7 +37,7 @@ Before beginning training or utilizing Cycle-StarNet, I recommend reading the [t
 
 ## DR14 (in progress)
 
-### Code
+### Code2
 
 Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
