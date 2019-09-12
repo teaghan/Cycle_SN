@@ -43,4 +43,4 @@ Before beginning training or utilizing Cycle-StarNet, I recommend reading the [t
   
   3. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py paynetodr14_nozsplit_53 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training. (Note that the training takes approximately 30 hours on GPU). Alternatively, if operating on compute-canada see [this script](../scripts/paynetodr14_nozsplit_53.sh) for the training. It allows faster data loading throughout training.
   
-  4. Lastly, the [Tracking New Lines notebook](./Anaylze_dr14.ipynb) shows the method used to identify the missing lines.
+  4. Lastly, the [Tracking New Lines notebook](./Analyze_dr14.ipynb) shows the method used to identify the missing lines.
