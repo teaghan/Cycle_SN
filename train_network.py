@@ -1,25 +1,19 @@
 # import packages
 from __future__ import absolute_import, division, print_function # python2 compatibility
 import numpy as np
-import h5py
 from collections import defaultdict
 import sys
 import os
-import glob
 import time
 import configparser
 from distutils import util
 
 import torch
-import torch.nn as nn
-from torch.utils.data import DataLoader
-from torch.autograd import Variable
+from torch.utils.data import DataLoader, Dataset
 
-from training_fns import (parseArguments, weighted_masked_mse_loss, PayneObservedDataset, 
-                          create_synth_batch, batch_to_cuda, train_iter, evaluation_checkpoint)
+from training_fns import (parseArguments, weighted_masked_mse_loss, CSNDataset,
+                          create_synth_batch, batch_to_cuda, train_iter, val_iter)
 from network import CycleSN
-
-from The_Payne.utils import read_in_neural_network
 
 np.random.seed(1)
 torch.manual_seed(1)
@@ -39,8 +33,6 @@ model_name = args.model_name
 verbose_iters = args.verbose_iters
 cp_time = args.cp_time
 data_dir = args.data_dir
-fixed_vmacro = args.fixed_vmacro
-obs_domain = args.obs_domain
 
 # Directories
 cur_dir = os.path.dirname(__file__)
@@ -64,8 +56,11 @@ for key_head in config.keys():
         print('    %s: %s'%(key, config[key_head][key]))
         
 # DATA FILES
+data_file_synth = os.path.join(data_dir, config['DATA']['data_file_synth'])
 data_file_obs = os.path.join(data_dir, config['DATA']['data_file_obs'])
 spectra_norm_file = os.path.join(data_dir, config['DATA']['spectra_norm_file'])
+emulator_fn = os.path.join(model_dir, config['DATA']['emulator_fn'])
+
 
 # TRAINING PARAMETERS
 batchsize = int(config['TRAINING']['batchsize'])
@@ -76,8 +71,6 @@ loss_weight_rec = float(config['TRAINING']['loss_weight_rec'])
 loss_weight_cc = float(config['TRAINING']['loss_weight_cc'])
 loss_weight_gen = float(config['TRAINING']['loss_weight_gen'])
 loss_weight_dis = float(config['TRAINING']['loss_weight_dis'])
-#lr_decay_batch_iters_rg = float(config['TRAINING']['lr_decay_batch_iters_rg'])
-#lr_decay_batch_iters_dis = float(config['TRAINING']['lr_decay_batch_iters_dis'])
 lr_decay_batch_iters_rg = eval(config['TRAINING']['lr_decay_batch_iters_rg'])
 lr_decay_batch_iters_dis = eval(config['TRAINING']['lr_decay_batch_iters_dis'])
 lr_decay_rg = float(config['TRAINING']['lr_decay_rg'])
@@ -88,11 +81,8 @@ mask_synth_lines = bool(util.strtobool(config['TRAINING']['mask_synth_lines']))
 
 # BUILD THE NETWORKS
 
-# Load the Payne pre-trained weights
-emulator_coeffs = read_in_neural_network()
-
 print('\nBuilding networks...')
-model = CycleSN(architecture_config, emulator_coeffs, use_cuda=use_cuda)
+model = CycleSN(architecture_config, emulator_fn, use_cuda=use_cuda)
 
 # Display model architectures
 print('\n\nSYNTHETIC EMULATOR ARCHITECTURE:\n')
@@ -135,20 +125,17 @@ else:
 optimizer_dis = torch.optim.Adam([{'params': model.discriminator_synth.parameters(), "lr": learning_rate_discriminator},
                                   {'params': model.discriminator_obs.parameters(), "lr": learning_rate_discriminator}],
                                  weight_decay = 0, betas=(0.5, 0.999))
-#lr_scheduler_rg = torch.optim.lr_scheduler.StepLR(optimizer_rec_and_gen, 
-#                                                  step_size=lr_decay_batch_iters_rg, 
-#                                                  gamma=lr_decay_rg)
+
+# Learning rate schedulers
 lr_scheduler_rg = torch.optim.lr_scheduler.MultiStepLR(optimizer_rec_and_gen, 
                                                        milestones=lr_decay_batch_iters_rg, 
                                                        gamma=lr_decay_rg)
-#lr_scheduler_dis = torch.optim.lr_scheduler.StepLR(optimizer_dis, 
-#                                                   step_size=lr_decay_batch_iters_dis, 
-#                                                   gamma=lr_decay_dis)
+
 lr_scheduler_dis = torch.optim.lr_scheduler.MultiStepLR(optimizer_dis, 
                                                        milestones=lr_decay_batch_iters_dis, 
                                                        gamma=lr_decay_dis)
 # Loss functions
-gan_loss = nn.BCELoss()
+gan_loss = torch.nn.BCELoss()
 distance_loss = weighted_masked_mse_loss
 
 # Check for pre-trained weights
@@ -190,76 +177,44 @@ else:
     # Don't use line mask
     line_mask = None
 
-# Define some domain unique variables for data loading
-if obs_domain.lower()=='payne':
-    obs_domain = 'PAYNE'
-    # Use ones for the spectra masks in the loss function
-    collect_x_mask = False
-    # Use randomly generated spectra as validation set
-    val_dataset = 'val'
-elif obs_domain.lower()=='apogee':
-    
-    obs_domain = 'APOGEE'
-    # Use aspcap mask spectra
-    collect_x_mask = True
-    # Use cluster stars as validation set
-    val_dataset = 'cluster'
-else:
-    raise argparse.ArgumentTypeError('payne or apogee abserved domain expected.')
-    
 # Normalization data for the spectra
 x_mean, x_std = np.load(spectra_norm_file)
 
-# Load the Payne labels
-
-# [Teff, Logg, Vturb [km/s],
-# [C/H], [N/H], [O/H], [Na/H], [Mg/H],
-# [Al/H], [Si/H], [P/H], [S/H], [K/H],
-# [Ca/H], [Ti/H], [V/H], [Cr/H], [Mn/H],
-# [Fe/H], [Co/H], [Ni/H], [Cu/H], [Ge/H],
-# C12/C13, Vmacro [km/s]
-labels_payne = np.load(data_dir+'mock_all_spectra_no_noise_resample_prior_large.npz')['labels'].T
-
-# Perturb the payne labels within a range to create our synthetic training batches.
-# These perturbations are in the same order as the labels.
-perturbations = [100., 0.1, 0.2, *np.repeat(0.1, 20), 5., 2.]
-
 # Training dataset to loop through
-obs_dataset = PayneObservedDataset(data_file_obs, obs_domain=obs_domain, dataset='train', 
-                                   x_mean=x_mean, x_std=x_std, collect_x_mask=collect_x_mask)
-obs_train_dataloader = DataLoader(obs_dataset, batch_size=batchsize, shuffle=True, num_workers=6)
+obs_train_dataset = CSNDataset(data_file_obs, dataset='train', x_mean=x_mean, 
+                               x_std=x_std, line_mask=None)
+obs_train_dataloader = DataLoader(obs_train_dataset, batch_size=batchsize, shuffle=True, num_workers=6)
+synth_train_dataset = CSNDataset(data_file_synth, dataset='train', x_mean=x_mean, 
+                                 x_std=x_std, line_mask=line_mask)
+synth_train_dataloader = DataLoader(synth_train_dataset, batch_size=batchsize, shuffle=True, num_workers=6)
 
 # Validation set that consists of matching pairs in the synthetic and observed domains
-obs_val_set = obs_dataset.__getitem__(1000, dataset=val_dataset, return_labels=True, collect_preceeding=True) 
-synth_val_set = create_synth_batch(model, x_mean, x_std, y=obs_val_set['y'], line_mask=line_mask)
-
-# Switch to GPU
-if use_cuda:
-    obs_val_set = batch_to_cuda(obs_val_set)
-    synth_val_set = batch_to_cuda(synth_val_set)
+obs_val_dataset = CSNDataset(data_file_obs, dataset='val', x_mean=x_mean, 
+                             x_std=x_std, line_mask=None)
+obs_val_dataloader = DataLoader(obs_val_dataset, batch_size=128, shuffle=True, num_workers=6)
 
 def train_network(cur_iter):
     print('Training the network...')
     print('Progress will be displayed every %i iterations and the model will be saved every %i minutes.'%
           (verbose_iters,cp_time))
+    
     # Train the neural networks
     losses_cp = defaultdict(list)
     cp_start_time = time.time()
     
     while cur_iter < total_batch_iters:
-        
+        # Iterate through both datasets simultaneously
+        synthdataloader_iterator = iter(synth_train_dataloader)
         for obs_train_batch in obs_train_dataloader:
-            # Create synthetic batch from the distribution of the original Payne training set.
-            # We will potentially use the "line_mask" to set some lines to the continuum.
-            # We will also potentially fix the vmacro labels to 15km/s.
-            synth_train_batch = create_synth_batch(model, x_mean, x_std, 
-                                                   batchsize=len(obs_train_batch['x']),
-                                                   line_mask=line_mask, 
-                                                   labels_payne=labels_payne, 
-                                                   perturbations=perturbations, 
-                                                   fixed_vmacro=fixed_vmacro)
-
+            
+            try:
+                synth_train_batch = next(synthdataloader_iterator)
+            except StopIteration:
+                synthdataloader_iterator = iter(synth_train_dataloader)
+                synth_train_batch = next(synthdataloader_iterator)
+            
             if use_cuda:
+                # Swith to GPU
                 obs_train_batch = batch_to_cuda(obs_train_batch)
                 synth_train_batch = batch_to_cuda(synth_train_batch)
             
@@ -271,12 +226,19 @@ def train_network(cur_iter):
                                    lr_scheduler_rg, lr_scheduler_dis, 
                                    use_real_as_true, losses_cp, use_cuda)
             
-            # Evaluate val set and display losses
+            # Evaluate validation set and display losses
             if cur_iter % verbose_iters == 0:
-                
-                losses_cp = evaluation_checkpoint(model, obs_val_set, 
-                                                  synth_val_set, distance_loss, 
-                                                  losses_cp)
+                # Only run 10 batch iters
+                i=0
+                while i<10:
+                    for obs_val_batch in obs_val_dataloader:
+                        if use_cuda:
+                            # Swith to GPU
+                            obs_val_batch = batch_to_cuda(obs_val_batch)
+
+                        losses_cp = val_iter(model, obs_val_batch, x_mean, x_std, distance_loss, 
+                                             losses_cp, line_mask=line_mask, use_cuda=use_cuda)
+                        i+=1
                 
                 # Calculate averages
                 for k in losses_cp.keys():

@@ -1,3 +1,4 @@
+# no sigmoid
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
@@ -5,36 +6,31 @@ from torch.autograd import Variable
 
 from distutils import util
 import numpy as np
-
-
-def build_emulator(dim_in=25, num_neurons=300, num_pixel=7214, emulator_coeffs=None, use_cuda=True):
+    
+def build_emulator(model_fn, dim_in=25, num_neurons=300, num_pixel=7214, use_cuda=True):
+    
     # Create layers
     model = torch.nn.Sequential(torch.nn.Linear(dim_in, num_neurons),
-                                torch.nn.Sigmoid(),
+                                torch.nn.LeakyReLU(0.01),
                                 torch.nn.Linear(num_neurons, num_neurons),
-                                torch.nn.Sigmoid(),
+                                torch.nn.LeakyReLU(0.01),
                                 torch.nn.Linear(num_neurons, num_pixel))
-    # Assign pre-trained weights
-    if emulator_coeffs is not None:
-        w_array_0, w_array_1, w_array_2, b_array_0, b_array_1, b_array_2, y_min, y_max = emulator_coeffs
-        y_min = torch.Tensor(y_min.astype(np.float32))
-        y_max = torch.Tensor(y_max.astype(np.float32))
-        
-        for param, weights in zip(model.parameters(), 
-                                  [w_array_0, b_array_0, w_array_1, b_array_1, w_array_2, b_array_2]):
-            param.data =  Variable(torch.from_numpy(weights)).type(torch.FloatTensor)
-            
-        if use_cuda:
-            model = model.cuda()
-            y_min = y_min.cuda()
-            y_max = y_max.cuda()
-            
-        return model, y_min, y_max
     
-    else:
-        if use_cuda:
-            model = model.cuda()
-        return model
+    # Load model info
+    checkpoint = torch.load(model_fn, map_location=lambda storage, loc: storage)
+    y_min = checkpoint['y_min']
+    y_max = checkpoint['y_max']
+    
+    # Load model weights
+    model.load_state_dict(checkpoint['Payne'])
+    
+    # Change to GPU
+    if use_cuda:
+        model = model.cuda()
+        y_min = y_min.cuda()
+        y_max = y_max.cuda()
+    
+    return model, y_min, y_max
     
 def init_weights(m):
     """
@@ -86,6 +82,7 @@ def build_encoder(input_filts, conv_filts, conv_strides, conv_filt_lens, activat
         model.apply(init_weights)
         
     if use_cuda:
+        # Switch to GPU
         model = model.cuda()
 
     return model
@@ -97,10 +94,10 @@ def build_decoder(input_filts, conv_filts, conv_strides, conv_filt_lens, activat
     
     # Conv layers (reverse order of encoders)
     for filts, strides, filter_length in zip(reversed(conv_filts), reversed(conv_strides), reversed(conv_filt_lens)):
-        if strides>1:
-            layers.append(nn.ConvTranspose1d(input_filts, filts, filter_length, strides))
-        else:      
-            layers.append(nn.Conv1d(input_filts, filts, filter_length, strides))
+        #if strides>1:
+        layers.append(nn.ConvTranspose1d(input_filts, filts, filter_length, strides))
+        #else:      
+        #    layers.append(nn.Conv1d(input_filts, filts, filter_length, strides))
         layers.append(activation)
         input_filts = filts
        
@@ -144,8 +141,7 @@ class Discrimninator(nn.Module):
 
     def __init__(self, input_filts_z, num_pixels, z_dim, 
                  conv_filts_x, conv_strides_x, conv_filt_lens_x, 
-                 conv_filts_z, conv_strides_z, conv_filt_lens_z, 
-                 conv_filts_c, conv_strides_c, conv_filt_lens_c, 
+                 conv_filts_z, conv_strides_z, conv_filt_lens_z,
                  activ_fn, init=True, use_cuda=True):
                 
         super(Discrimninator, self).__init__()
@@ -170,31 +166,20 @@ class Discrimninator(nn.Module):
                                                    activ_fn, 
                                                    padding=padding, init=init,
                                                    use_cuda=use_cuda)
-        # Layers applied to combined output of the previous two sets of layers
-        self.discriminator_c = build_discriminator(conv_filts_x[-1]+conv_filts_z[-1], 
-                                                   conv_filts_c, 
-                                                   conv_strides_c, 
-                                                   conv_filt_lens_c, 
-                                                   activ_fn, 
-                                                   padding=padding, init=init,
-                                                   use_cuda=use_cuda)
         
         # Calculate output sizes
         dis_x_output_shape = compute_out_size((1,num_pixels), self.discriminator_x)
         dis_z_output_shape = compute_out_size((input_filts_z, z_dim), self.discriminator_z)
-        dis_c_output_shape = compute_out_size((dis_x_output_shape[0]+dis_z_output_shape[0], dis_z_output_shape[1]), 
-                                              self.discriminator_c)
-        fc_input_dim = np.prod(list(dis_c_output_shape))
+        fc_input_dim = np.prod(list(dis_x_output_shape))+np.prod(list(dis_z_output_shape))
         
         # Output layer
         self.fc = nn.Linear(fc_input_dim, 1)
         self.activ_out = torch.nn.Sigmoid()
         
     def forward(self, x, z):
-        cur_in1 = self.discriminator_x(x)
-        cur_in2 = self.discriminator_z(z)
-        cur_in1 = self.discriminator_c(torch.cat((cur_in1, cur_in2), 1))
-        cur_in1 = cur_in1.view(cur_in1.size(0), -1)
+        cur_in1 = self.discriminator_x(x).view(x.size(0), -1)
+        cur_in2 = self.discriminator_z(z).view(x.size(0), -1)
+        cur_in1 = torch.cat((cur_in1, cur_in2), 1)
         cur_in1 = self.fc(cur_in1)
         cur_in1 = self.activ_out(cur_in1)
         return cur_in1
@@ -202,7 +187,7 @@ class Discrimninator(nn.Module):
 
 class CycleSN(nn.Module):
 
-    def __init__(self, architecture_config, emulator_coeffs=None, use_cuda=True):
+    def __init__(self, architecture_config, emulator_fn=None, use_cuda=True):
                 
         super(CycleSN, self).__init__()
                 
@@ -227,9 +212,6 @@ class CycleSN(nn.Module):
         conv_filts_dis_z = eval(architecture_config['conv_filts_dis_z'])
         conv_strides_dis_z = eval(architecture_config['conv_strides_dis_z'])
         conv_filt_lens_dis_z = eval(architecture_config['conv_filt_lens_dis_z'])
-        conv_filts_dis_c = eval(architecture_config['conv_filts_dis_c'])
-        conv_strides_dis_c = eval(architecture_config['conv_strides_dis_c'])
-        conv_filt_lens_dis_c = eval(architecture_config['conv_filt_lens_dis_c'])
                 
         # Whether or not to use a split latent-space
         if split_z_filters>0:
@@ -238,8 +220,8 @@ class CycleSN(nn.Module):
             self.use_split = False
         
         # Create emulator
-        (self.emulator, self.y_min, self.y_max) = build_emulator(emulator_coeffs=emulator_coeffs, 
-                                                                         use_cuda=use_cuda)
+        (self.emulator, self.y_min, self.y_max) = build_emulator(model_fn=emulator_fn, 
+                                                                 use_cuda=use_cuda)
         
         # Define activation function
         if activation.lower()=='sigmoid':
@@ -339,10 +321,7 @@ class CycleSN(nn.Module):
                                                     conv_filt_lens_dis_x, 
                                                     conv_filts_dis_z, 
                                                     conv_strides_dis_z, 
-                                                    conv_filt_lens_dis_z, 
-                                                    conv_filts_dis_c, 
-                                                    conv_strides_dis_c, 
-                                                    conv_filt_lens_dis_c, 
+                                                    conv_filt_lens_dis_z,
                                                     activ_fn, init=True,
                                                     use_cuda=use_cuda)
         if self.use_split:
@@ -358,10 +337,7 @@ class CycleSN(nn.Module):
                                                     conv_filt_lens_dis_x, 
                                                     conv_filts_dis_z, 
                                                     conv_strides_dis_z, 
-                                                    conv_filt_lens_dis_z, 
-                                                    conv_filts_dis_c, 
-                                                    conv_strides_dis_c, 
-                                                    conv_filt_lens_dis_c, 
+                                                    conv_filt_lens_dis_z,
                                                     activ_fn, init=True,
                                                     use_cuda=use_cuda)
             
