@@ -169,7 +169,7 @@ def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_msk,
         plt.savefig(savename, transparent=True, pad_inches=0.2)
     plt.show()
 
-def plot_spec_resid_density(wave_grid, resid, labels, ylim, hist=True, kde=True,
+def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde=True,
                             dist_bins=180, hex_grid=300, bias='med',
                             bias_label='$\widetilde{{m}}$ \ ',
                             cmap="ocean_r", savename=None):
@@ -181,10 +181,10 @@ def plot_spec_resid_density(wave_grid, resid, labels, ylim, hist=True, kde=True,
     scatter_resids = []
     for i in range(len(resid)):
         if bias=='med':
-            bias_resids.append(np.median(resid[i]))
+            bias_resids.append(np.median(resid[i][mask==1.]))
         elif bias=='mean':
-            bias_resids.append(np.mean(resid[i]))
-        scatter_resids.append(np.std(resid[i]))
+            bias_resids.append(np.mean(resid[i][mask==1.]))
+        scatter_resids.append(np.std(resid[i][mask==1.]))
         
     fig = plt.figure(figsize=(17, len(resid)*5)) 
     gs = gridspec.GridSpec(len(resid), 2,  width_ratios=[5., 1])
