@@ -134,41 +134,54 @@ def plot_10_samples(wave_grid, x1, x2, test_indices,
     fig.legend([orig, pred, resid],[labels[0],labels[1],labels[0]+r'$ - $'+labels[1]],
               loc='center right', fontsize=90)  
     plt.show()
-    
-def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_msk,
+
+def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_err, x_obs_msk,
                 indx, min_wave=15200, max_wave=15550, savename=None):
     plt.close('all')
     # Calculate residulal
-    x_resid = (x_obs-x_synthobs)
+    x_resid = (x_obs-x_synthobs)/x_obs_err
 
+    
+    
     # Plot test results
     fig, axes = plt.subplots(4,1,figsize=(14,6), sharex=True)
-    orig_synth, = axes[0].plot(wave_grid, x_synth[indx], c='maroon')
-    orig_obs, = axes[1].plot(wave_grid, x_obs[indx], c='royalblue')
-    pred, = axes[2].plot(wave_grid, x_synthobs[indx], c='indianred')
-    resid, = axes[3].plot(wave_grid, x_resid[indx], c='forestgreen')
+    orig_synth, = axes[0].plot(wave_grid, 
+                               np.ma.masked_array(x_synth[indx], x_obs_msk[indx]==0),
+                               c='maroon')
+    orig_obs, = axes[1].plot(wave_grid, 
+                             np.ma.masked_array(x_obs[indx], x_obs_msk[indx]==0), 
+                             c='royalblue')
+    pred, = axes[2].plot(wave_grid, 
+                         np.ma.masked_array(x_synthobs[indx], x_obs_msk[indx]==0), 
+                         c='indianred')
+    resid, = axes[3].plot(wave_grid, 
+                          np.ma.masked_array(x_resid[indx], x_obs_msk[indx]==0), 
+                          c='forestgreen')
+    axes[3].plot([wave_grid[0], wave_grid[-1]], [1,1], 'k--', lw=1)
+    axes[3].plot([wave_grid[0], wave_grid[-1]], [-1,-1], 'k--', lw=1)
 
     for i in range(4):
         if i==3:
-            axes[3].set_ylim((-0.35,0.35))
+            axes[3].set_ylim((-5,5))
         else:
             axes[i].set_ylim((0.5,1.2))
+            axes[i].plot([wave_grid[0], wave_grid[-1]], [1,1], 'k--', lw=1)
         axes[i].tick_params(labelsize=15)
-        axes[i].fill_between(wave_grid, y1=-0.5, y2=1.5, 
-                             where=np.median(x_obs_msk, 0)<0.55, 
+        axes[i].fill_between(wave_grid, y1=-5, y2=5, 
+                             where=x_obs_msk[indx]==0,#np.median(x_obs_msk, 0)<0.7, 
                              color='gray', alpha=0.5)
+
 
     axes[0].set_xlim((min_wave,max_wave))
     fig.legend([orig_synth, orig_obs, pred, resid],
-               [r'$x_{synth}$',r'$x_{obs}$', r'$x_{synth \rightarrow obs}$', r'$(x_{obs}-x_{synth \rightarrow obs})$'],
+               [r'$x_{synth}$',r'$x_{obs}$', r'$x_{synth \rightarrow obs}$', r'$\frac{(x_{obs}-x_{synth \rightarrow obs})}{\sigma_{obs}}$'],
               loc='upper center', fontsize=22, ncol=4)
     plt.xlabel(r'Wavelength (\AA)',fontsize=22)
     fig.subplots_adjust(top=0.83, bottom=0.15)
 
     if savename is not None:
-        plt.savefig(savename, transparent=True, pad_inches=0.2)
+        plt.savefig(savename, transparent=True, pad_inches=0.05)
     plt.show()
-
 def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde=True,
                             dist_bins=180, hex_grid=300, bias='med',
                             bias_label='$\widetilde{{m}}$ \ ',
