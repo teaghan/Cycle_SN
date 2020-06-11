@@ -159,7 +159,7 @@ class CSNDataset(Dataset):
         return {'x':x, 'x_err':x_err, 'x_msk':x_msk, 'y':y, 'snr':snr}
         
 def train_iter(model, obs_train_batch, synth_train_batch, distance_loss, gan_loss, 
-               loss_weight_rec, loss_weight_cc, loss_weight_gen, loss_weight_dis,
+               loss_weight_synth, loss_weight_obs, loss_weight_gen, loss_weight_dis,
                optimizer_rec_and_gen, optimizer_dis, lr_scheduler_rg, lr_scheduler_dis, 
                use_real_as_true, losses_cp, use_cuda):
     
@@ -234,8 +234,8 @@ def train_iter(model, obs_train_batch, synth_train_batch, distance_loss, gan_los
                                 mask=obs_train_batch['x_msk'])
     loss_gen_synth = gan_loss(c_synth_fake, batch_ones)
     loss_gen_obs = gan_loss(c_obs_fake, batch_ones)
-    loss_total_rec_gen = (loss_weight_rec*(loss_rec_synth + loss_rec_obs) + 
-                          loss_weight_cc*(loss_cc_synth + loss_cc_obs) +
+    loss_total_rec_gen = (loss_weight_synth*(loss_rec_synth + loss_cc_synth) + 
+                          loss_weight_obs*(loss_rec_obs + loss_cc_obs) +
                           loss_weight_gen*(loss_gen_synth + loss_gen_obs))
 
     # Back propogate

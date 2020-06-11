@@ -1,4 +1,5 @@
 # import packages
+# individual loss weigths for synth and observed recs
 from __future__ import absolute_import, division, print_function # python2 compatibility
 import numpy as np
 from collections import defaultdict
@@ -11,7 +12,7 @@ from distutils import util
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from training_fns import (parseArguments, weighted_masked_mse_loss, CSNDataset,
+from training_fns_lw import (parseArguments, weighted_masked_mse_loss, CSNDataset,
                           create_synth_batch, batch_to_cuda, train_iter, val_iter)
 from network import CycleSN
 
@@ -67,8 +68,8 @@ batchsize = int(config['TRAINING']['batchsize'])
 learning_rate_encoder = float(config['TRAINING']['learning_rate_encoder'])
 learning_rate_decoder = float(config['TRAINING']['learning_rate_decoder'])
 learning_rate_discriminator = float(config['TRAINING']['learning_rate_discriminator'])
-loss_weight_rec = float(config['TRAINING']['loss_weight_rec'])
-loss_weight_cc = float(config['TRAINING']['loss_weight_cc'])
+loss_weight_synth = float(config['TRAINING']['loss_weight_synth'])
+loss_weight_obs = float(config['TRAINING']['loss_weight_obs'])
 loss_weight_gen = float(config['TRAINING']['loss_weight_gen'])
 loss_weight_dis = float(config['TRAINING']['loss_weight_dis'])
 lr_decay_batch_iters_rg = eval(config['TRAINING']['lr_decay_batch_iters_rg'])
@@ -220,8 +221,8 @@ def train_network(cur_iter):
             
             # Train an iteration
             losses_cp = train_iter(model, obs_train_batch, synth_train_batch, 
-                                   distance_loss, gan_loss, loss_weight_rec, 
-                                   loss_weight_cc, loss_weight_gen, loss_weight_dis,
+                                   distance_loss, gan_loss, loss_weight_synth, 
+                                   loss_weight_obs, loss_weight_gen, loss_weight_dis,
                                    optimizer_rec_and_gen, optimizer_dis, 
                                    lr_scheduler_rg, lr_scheduler_dis, 
                                    use_real_as_true, losses_cp, use_cuda)
