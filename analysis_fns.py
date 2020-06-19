@@ -332,12 +332,18 @@ def tsne_domain_analysis2(x_synth, x_obs, x_synthobs,
             labelleft=False)
         
     # Remove outliers
-    x_diff = np.abs(B_txa-A_txa)
-    y_diff = np.abs(B_tya-A_tya)
-    x_std = np.std(x_diff)
-    y_std = np.std(y_diff)
-    indices = np.where((y_diff<5*y_std)&(x_diff<5*x_std))
-
+    x_diffx = np.abs(B_txa-A_txa)
+    y_diffx = np.abs(B_tya-A_tya)
+    x_stdx = np.std(x_diffx)
+    y_stdx = np.std(y_diffx)
+    if zsh_synth is not None:
+        x_diffz = np.abs(Bz_txa-Az_txa)
+        y_diffz = np.abs(Bz_tya-Az_tya)
+        x_stdz = np.std(x_diffz)
+        y_stdz = np.std(y_diffz)
+        indices = np.where((y_diffx<5*y_stdx)&(x_diffx<5*x_stdx)&(y_diffz<5*y_stdz)&(x_diffz<5*x_stdz))
+    else:
+        indices = np.where((y_diffx<5*y_stdx)&(x_diffx<5*x_stdx))
     dot_b = ax1.scatter(B_txa[indices], B_tya[indices], marker='o', c='cornflowerblue', alpha=0.2)
     dot_a = ax1.scatter(A_txa[indices], A_tya[indices], marker='o', c='firebrick', alpha=0.2)
     leg1 = ax1.legend((dot_a, dot_b), (r'$\mathbf{\mathcal{X}_{synth}}$', 
