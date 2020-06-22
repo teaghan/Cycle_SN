@@ -84,7 +84,10 @@ def create_synth_batch(model, x_mean, x_std, y, line_mask=None, use_cuda=True):
     # Only select last 7167 pixels
     x = x[:,47:]
     
-    return {'x':x, 'x_err':torch.ones(x.size(), dtype=torch.float32), 
+    x_err = torch.ones(x.size(), dtype=torch.float32)*0.005
+    x_err = x_err/x_std
+    
+    return {'x':x, 'x_err':x_err, 
                 'x_msk':torch.ones(x.size(), dtype=torch.float32), 'y':y} 
     
 def batch_to_cuda(batch):
@@ -152,9 +155,13 @@ class CSNDataset(Dataset):
             # Normalize the spectrum
             x = (x - self.x_mean) / self.x_std
             
+            # Normalize the error spectrum
+            x_err[x_err<0.005] = 0.005
+            x_err = x_err / self.x_std
+            
             # Add one to the spectra errors to ensure that the minimum
             # error is 1. This helps avoid huge losses.
-            x_err += 1
+            #x_err += 1
             
         return {'x':x, 'x_err':x_err, 'x_msk':x_msk, 'y':y, 'snr':snr}
         

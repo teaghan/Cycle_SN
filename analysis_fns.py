@@ -174,7 +174,9 @@ def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_err, x_obs_msk,
 
     axes[0].set_xlim((min_wave,max_wave))
     fig.legend([orig_synth, orig_obs, pred, resid],
-               [r'$x_{synth}$',r'$x_{obs}$', r'$x_{synth \rightarrow obs}$', r'$\frac{(x_{obs}-x_{synth \rightarrow obs})}{\sigma_{obs}}$'],
+               [r'$x_{synth}$',r'$x_{obs}$', 
+                r'$x_{synth \rightarrow obs}$', 
+                r'$\frac{(x_{obs}-x_{synth \rightarrow obs})}{\sigma_{obs}}$'],
               loc='upper center', fontsize=22, ncol=4)
     plt.xlabel(r'Wavelength (\AA)',fontsize=22)
     fig.subplots_adjust(top=0.83, bottom=0.15)
@@ -182,14 +184,15 @@ def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_err, x_obs_msk,
     if savename is not None:
         plt.savefig(savename, transparent=True, pad_inches=0.05)
     plt.show()
+    
 def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde=True,
                             dist_bins=180, hex_grid=300, bias='med',
-                            bias_label='$\widetilde{{m}}$ \ ',
+                            bias_label=r'$\widetilde{{m}}$ \ ',
                             cmap="ocean_r", savename=None):
     
     xs = np.repeat(wave_grid.reshape(1,wave_grid.shape[0]), len(resid[0]), axis=0)
 
-    scatter_label='$s$ \ \ '
+    scatter_label='$s$ \ '
     bias_resids = []
     scatter_resids = []
     for i in range(len(resid)):
@@ -213,7 +216,7 @@ def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde
 
         ax0.set_xlim(wave_grid[0], wave_grid[-1])
         ax0.tick_params(axis='y',
-                        labelsize=20,width=1,length=10)
+                        labelsize=25,width=1,length=10)
         ax0.tick_params(axis='x',          
                         which='both',     
                         bottom=False,      
@@ -226,22 +229,23 @@ def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde
         sns.distplot(resid[i].flatten(), vertical=True, hist=hist, ax=ax1, kde=kde,
                  rug=False, bins=dist_bins, kde_kws={"lw": 2., "color": a.cmap(cmax/4.), "gridsize": dist_bins}, 
                  hist_kws={"color": a.cmap(cmax*0.6), "alpha":0.5})
+        ax1.set_xticks([])
         ax1.tick_params(axis='x',          
                         which='both',     
                         bottom=False,      
                         top=False,         
-                        labelbottom=False,width=1,length=10)   
+                        labelbottom=False)   
         ax1.tick_params(axis='y',          
                         which='both',   
                         left=False,     
                         right=True,        
                         labelleft=False,
                         labelright=True,
-                        labelsize=20,width=1,length=10)
+                        labelsize=25,width=1,length=10)
         ax1.set_ylim(ylim)
 
         bbox_props = dict(boxstyle="square,pad=0.3", fc="w", ec="k", lw=1)
-        ax0.annotate('%s=\ %0.4f \ \ %s=\ %0.4f'%(bias_label, bias_resids[i], 
+        ax0.annotate(r'%s=\ %0.4f \ \ %s=\ %0.4f'%(bias_label, bias_resids[i], 
                                                             scatter_label, scatter_resids[i]),
                      xy=(0.3, 0.87), xycoords='axes fraction', fontsize=25, bbox=bbox_props)
 
