@@ -186,13 +186,13 @@ def plot_sample(wave_grid, x_obs, x_synth, x_synthobs, x_obs_err, x_obs_msk,
     plt.show()
     
 def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde=True,
-                            dist_bins=180, hex_grid=300, bias='med',
+                            dist_bins=180, hex_grid=300, bias='med', scatter='std',
                             bias_label=r'$\widetilde{{m}}$ \ ',
+                            scatter_label=r'$s$ \ ',
                             cmap="ocean_r", savename=None):
     
     xs = np.repeat(wave_grid.reshape(1,wave_grid.shape[0]), len(resid[0]), axis=0)
 
-    scatter_label='$s$ \ '
     bias_resids = []
     scatter_resids = []
     for i in range(len(resid)):
@@ -200,7 +200,11 @@ def plot_spec_resid_density(wave_grid, resid, mask, labels, ylim, hist=True, kde
             bias_resids.append(np.median(resid[i][mask==1.]))
         elif bias=='mean':
             bias_resids.append(np.mean(resid[i][mask==1.]))
-        scatter_resids.append(np.std(resid[i][mask==1.]))
+            
+        if scatter=='std':
+            scatter_resids.append(np.std(resid[i][mask==1.]))
+        elif scatter=='1sigma':
+            scatter_resids.append((np.percentile(resid[i][mask==1.],86)-np.percentile(resid[i][mask==1.],16))/2)
         
     fig = plt.figure(figsize=(17, len(resid)*5)) 
     gs = gridspec.GridSpec(len(resid), 2,  width_ratios=[5., 1])
