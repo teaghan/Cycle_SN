@@ -24,7 +24,7 @@ This project aims to bridge the gap between two different sets of stellar spectr
 </p>      
 
 <p align="center">
-  <img width="700" height="550" src="./figures/Architecture.png"> 
+  <img width="800" height="550" src="./figures/Architecture.png"> 
 </p>      
                                      
     
@@ -41,5 +41,7 @@ This project aims to bridge the gap between two different sets of stellar spectr
 ## Getting Started ##
 
 Before beginning training or utilizing the Cycle-StarNet, I recommend reading the [technical write-up](./docs/README.md) on the method.
+
+To get started with our application of Domain Adaption with real observed spectra, take a look [here](./domain_transfer/).
 
 To get started with our New Lines Project, take a look [here](./new_lines_project/).
