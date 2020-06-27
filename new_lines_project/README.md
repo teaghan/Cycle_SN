@@ -8,10 +8,6 @@ One application of the Cycle-StarNet is to utilize the correlations found by the
 
    - [Getting Started](#code)
    
-[DR14 Dataset](#dr14-(in-progress))
-
-   - [Getting Started](#code2)
-   
 
 ## Mock Dataset
 
@@ -21,30 +17,14 @@ We first test our method with a "mock dataset" that is meant to mimic a real-wor
 
 Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
-  1. Download the original Payne training set (mock_all_spectra_no_noise_resample_prior_large.npz) from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
+  1. Download the synthetic (csn_kurucz.h5) and mock observed ( csn_apogee_mock.h5) training sets from [here](https://www.canfar.net/storage/list/starnet/public/Cycle_SN) and place it in the [data directory](../data/).
   
   2. Next, the line mask is created in [this notebook](./Create_Line_Mask.ipynb).
   
   3. Now we can generate our mock observed dataset [here](./Generate_Observed_Payne_Domain.ipynb).
   
-  4. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetopayne_nozsplit_1 configuration file](../configs/paynetopayne_nozsplit_1.ini). This model does not utilize the split latent-space method, only shared latent-variables.
+  4. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [new_lines_1 configuration file](../configs/new_lines_1.ini).
   
-  5. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py paynetopayne_nozsplit_1 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training. (Note that the training takes approximately 5 hours on GPU). Alternatively, if operating on compute-canada see [this script](../scripts/paynetopayne_nozsplit_1.sh) for the training. It allows faster data loading throughout training.
+  5. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py new_lines_1 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training. (Note that the training takes approximately 10 hours on GPU). Alternatively, if operating on compute-canada see [this script](../scripts/new_lines_1.sh) for the training. It allows faster data loading throughout training.
   
-  6. The [Domain Transfer Analysis notebook](./Domain_Transfer_paynetopayne_nozsplit.ipynb) takes you through the steps of analyzing the StarNet-Cycle to ensure that the model can transfer spectra from one domain to the other.
-  
-  7. Lastly, the [Tracking New Lines notebook](./Track_Lines_paynetopayne_nozsplit.ipynb) shows the method used to identify the missing lines.
-
-## DR14 (in progress)
-
-### Code2
-
-Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
-  
-  1. Download the original Payne training set (mock_all_spectra_no_noise_resample_prior_large.npz) and the aspcap data file (aspcapStar_dr14.h5) from [here](https://www.canfar.net/storage/list/starnet/public/new_lines_project) and place it in the [data directory](../data/).
-  
-  2. The model architecture and hyper-parameters are set within configuration file in [the config directory](../configs). For instance, I have already created the [paynetodr14_nozsplit_53 configuration file](../configs/paynetodr14_nozsplit_53.ini). This model does not utilize the split latent-space method, only shared latent-variables.
-  
-  3. Using this model as my example, from the main Cycle_SN directory, you can run `python train_network.py paynetodr14_nozsplit_53 -v 1000 -ct 15` which will train your model displaying the progress every 1000 batch iterations and saves the model every 15 minutes. This same command will continue training the network if you already have the model saved in the [model directory](../models) from previous training. (Note that the training takes approximately 30 hours on GPU). Alternatively, if operating on compute-canada see [this script](../scripts/paynetodr14_nozsplit_53.sh) for the training. It allows faster data loading throughout training.
-  
-  4. Lastly, the [Tracking New Lines notebook](./Analyze_dr14.ipynb) shows the method used to identify the missing lines.
+  6. Lastly, the [Tracking New Lines notebook](./Track_Lines_paynetopayne_nozsplit.ipynb) shows the method used to identify the missing lines.
