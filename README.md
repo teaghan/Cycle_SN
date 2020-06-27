@@ -24,11 +24,11 @@ This project aims to bridge the gap between two different sets of stellar spectr
 </p>      
 
 <p align="center">
-  <img width="600" height="550" src="./figures/Architecture.png"> 
+  <img width="700" height="550" src="./figures/Architecture.png"> 
 </p>      
                                      
     
-<p align="center"><b>Figure 1</b>: Overview of the proposed method (left) and a simplified diagram of the Cycle-StarNet Architecture (right).<p align="center"> 
+<p align="center"><b>Figure 1</b>: Overview of the proposed method (top) and a simplified diagram of the Cycle-StarNet Architecture (bottom).<p align="center"> 
                                    
 
 <p align="center">
