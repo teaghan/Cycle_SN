@@ -212,6 +212,10 @@ class CycleSN(nn.Module):
         conv_filts_dis_z = eval(architecture_config['conv_filts_dis_z'])
         conv_strides_dis_z = eval(architecture_config['conv_strides_dis_z'])
         conv_filt_lens_dis_z = eval(architecture_config['conv_filt_lens_dis_z'])
+        # This variable is used for spectra fitting only:
+        self.cur_z_sp = None
+        self.x_mean = None
+        self.x_std = None
                 
         # Whether or not to use a split latent-space
         if split_z_filters>0:
@@ -383,6 +387,20 @@ class CycleSN(nn.Module):
             return self.discriminator_obs(x.unsqueeze(1), torch.cat((z_sh, z_sp), 1))
         else:
             return self.discriminator_obs(x.unsqueeze(1), z_sh)
+        
+    def y_to_obs(self, y):
+        '''For spectra fitting. Assumes the labels are already normalized and 
+        you have assigned a value for self.cur_z_sp'''
+        # Produce synthetic spectrum
+        x = self.emulator(y)
+        # Normalize the spectrum
+        x = (x - self.x_mean) / self.x_std
+        # Only select last 7167 pixels
+        x = x[:,47:]
+        # Produce shared z
+        z_sh = self.synth_to_z(x)
+        # Produce observed spectrum
+        return self.z_to_obs(z_sh, self.cur_z_sp)
         
     def rec_and_gen_train_mode(self):
         self.emulator.eval()
