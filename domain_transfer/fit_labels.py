@@ -2,17 +2,20 @@ import numpy as np
 import os
 import configparser
 from distutils import util
+import time
 
 import torch
 
 import sys
-sys.path.append('../')
+cur_dir = os.path.dirname(__file__)
+csn_dir = os.path.join(cur_dir, '../')
+print(csn_dir, csn_dir)
+sys.path.append(csn_dir)
 from network import CycleSN
 from training_fns import batch_to_cuda, create_synth_batch, CSNDataset
 #from lbfgsnew import LBFGSNew
 
 model_name = 'kurucz_to_apogee_67'
-num_spec = 10
 dataset = 'train' # or 'test'
 
 use_cuda = torch.cuda.is_available()
@@ -23,10 +26,20 @@ else:
     torch.set_default_tensor_type('torch.FloatTensor')
     
 # Directories
-csn_dir = '..'
 config_dir = os.path.join(csn_dir, 'configs/')
 model_dir = os.path.join(csn_dir, 'models/')
 data_dir = os.path.join(csn_dir, 'data/')
+
+# Check for pre-existing labels
+results_filename =  os.path.join(data_dir,'y_preds_%s_%s.npy'%(model_name,dataset))
+if os.path.exists(results_filename):
+    y_preds = np.load(results_filename)
+    start_indx = len(y_preds)
+else:
+    start_indx = 0
+    
+if len(sys.argv)>1:
+    data_dir = sys.argv[1]
 
 # Model configuration
 config = configparser.ConfigParser()
@@ -78,20 +91,9 @@ else:
 # A set of observed spectra
 obs_dataset = CSNDataset(data_file_obs, dataset=dataset, x_mean=x_mean, 
                              x_std=x_std, line_mask=None)
-obs_batch = obs_dataset.__getitem__(np.arange(num_spec)) 
-# Generate synth batch of matching spectra
-synth_batch = create_synth_batch(model, x_mean, x_std, obs_batch['y'], 
-                                 line_mask=line_mask, use_cuda=use_cuda)
-
-# Switch to GPU
-if use_cuda:
-    obs_batch = batch_to_cuda(obs_batch)
-    synth_batch = batch_to_cuda(synth_batch)
     
 # Create split latent variables
 model.eval_mode()
-with torch.no_grad():
-    zsh_obs, zsp_obs = model.obs_to_z(obs_batch['x'])
     
 ## Least squares fitting function    
 
@@ -102,45 +104,74 @@ with torch.no_grad():
 def least_squares_fit(model, data, weight, params):
     loss_fn = torch.nn.MSELoss(reduction='mean')
     data *= weight
-  
-    # L-BFGS-B optimization
-    optimizer = torch.optim.LBFGS([params], lr=0.01, max_iter=100, line_search_fn='strong_wolfe')
-    n_epochs = 10
-    for epoch in range(n_epochs):
-        def closure():
-            if torch.is_grad_enabled():
-                optimizer.zero_grad()
-            fit = weight * model(params)
-            loss = loss_fn(fit, data)
-            if loss.requires_grad:
-                loss.backward()
-            return loss
-        optimizer.step(closure)
-        min_loss = closure().item()
-    #print("  lbgfs loss ", min_loss)
+    
+    params_found = False
+    count_nans = 0
+    orig_params = params.clone()
+    while params_found is False:
+        # L-BFGS-B optimization
+        optimizer = torch.optim.LBFGS([params], lr=0.01, max_iter=100, line_search_fn='strong_wolfe')
+        n_epochs = 10
+        for epoch in range(n_epochs):
+            def closure():
+                if torch.is_grad_enabled():
+                    optimizer.zero_grad()
+                fit = weight * model(params)
+                loss = loss_fn(fit, data)
+                if loss.requires_grad:
+                    loss.backward()
+                return loss
+            optimizer.step(closure)
+            min_loss = closure().item()
+        if np.isnan(min_loss):
+            params.data = orig_params.data
+            count_nans+=1
+        else:
+            params_found=True
+        if count_nans>5:
+            params.data = orig_params.data
+            params_found=True
+        #print("  lbgfs loss ", min_loss)
     return min_loss
 
 mse = torch.nn.MSELoss(reduction='mean')
-
-y_preds = []
+cp_start_time = time.time()
 # Loop over all spectra
-for i in range(num_spec):
-    print("Spectrum ", i)
-    x_weight = obs_batch['x_msk'][i:i+1] / obs_batch['x_err'][i:i+1]
-    x_obs = obs_batch['x'][i:i+1]
-    model.cur_z_sp = zsp_obs[i:i+1]
+for cur_indx in range(start_indx, len(obs_dataset)):
+    print("Spectrum ", cur_indx)
+    obs_batch = obs_dataset.__getitem__(cur_indx) 
+    
+    # Switch to GPU
+    if use_cuda:
+        obs_batch = batch_to_cuda(obs_batch)
+    # Create z_sp
+    with torch.no_grad():
+        zsh_obs, zsp_obs = model.obs_to_z(obs_batch['x'].unsqueeze(0))
+    model.cur_z_sp = zsp_obs
+    
+    x_weight = obs_batch['x_msk'].unsqueeze(0) / obs_batch['x_err'].unsqueeze(0)
+    #x_obs = obs_batch['x']
+    
     # initialize stellar parameters with ThePayne guess
-    y_payne = (obs_batch['y'][i:i+1] - model.y_min) / (model.y_max - model.y_min) - 0.5
+    y_payne = (obs_batch['y'].unsqueeze(0) - model.y_min) / (model.y_max - model.y_min) - 0.5
     params = torch.nn.Parameter(y_payne, requires_grad=True)
-    params_copy = params.clone()
+    #params_copy = params.clone()
     # the x_obs seems to be stochastic, rerunning the cell gives different numbers. to be checked - 
-    print("  data check ", x_weight.mean(), x_obs.mean(), model.cur_z_sp.mean(), y_payne.mean())
-    print("  init loss payne : ", mse(x_weight*synth_batch['x'][i:i+1], x_obs*x_weight).item())
-    print("  init loss full  : ", mse(x_weight*model.y_to_obs(params), x_obs*x_weight).item())
+    #print("  data check ", x_weight.mean(), obs_batch['x'].unsqueeze(0).mean(), model.cur_z_sp.mean(), y_payne.mean())
+    #print("  init loss payne : ", mse(x_weight*synth_batch['x'][i:i+1], x_obs*x_weight).item())
+    print("  init loss full  : ", mse(x_weight*model.y_to_obs(params), obs_batch['x'].unsqueeze(0)*x_weight).item())
     #loss_payne = least_squares_fit(starnet.payne, x_obs, x_weight, params)
     #print("  final loss payne: ", loss_payne)
-    loss_full = least_squares_fit(model.y_to_obs, x_obs, x_weight, params)
+    loss_full = least_squares_fit(model.y_to_obs, obs_batch['x'].unsqueeze(0), x_weight, params)
     print("  final loss full : ", loss_full)
     y_pred = (params + 0.5) * (model.y_max - model.y_min) + model.y_min 
-    y_preds.append(y_pred.data.cpu().numpy())
-np.save('../data/y_preds_%s.npy'%dataset, np.array(y_preds))
+    
+    if cur_indx==0:
+        y_preds = np.array(y_pred.data.cpu().numpy())
+    else:
+        y_preds = np.vstack((y_preds, y_pred.data.cpu().numpy()))
+        
+    # Save every 15 minutes
+    if time.time() - cp_start_time >= 15*60:
+        np.save(results_filename, y_preds)
+        cp_start_time = time.time()

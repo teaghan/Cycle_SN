@@ -12,7 +12,7 @@ from distutils import util
 import torch
 from torch.utils.data import DataLoader, Dataset
 
-from training_fns_err import (parseArguments, weighted_masked_mse_loss, CSNDataset,
+from training_fns import (parseArguments, weighted_masked_mse_loss, CSNDataset,
                           create_synth_batch, batch_to_cuda, train_iter, val_iter)
 from network import CycleSN
 
