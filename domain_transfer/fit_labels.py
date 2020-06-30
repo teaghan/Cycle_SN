@@ -15,7 +15,7 @@ from network import CycleSN
 from training_fns import batch_to_cuda, create_synth_batch, CSNDataset
 #from lbfgsnew import LBFGSNew
 
-model_name = 'kurucz_to_apogee_67'
+model_name = 'kurucz_to_apogee_1'
 dataset = 'train' # or 'test'
 
 use_cuda = torch.cuda.is_available()
