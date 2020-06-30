@@ -402,7 +402,7 @@ class CycleSN(nn.Module):
         # Produce observed spectrum
         return self.z_to_obs(z_sh, self.cur_z_sp)
     
-    def y_to_synth_norm(self, y, use_cuda=True):
+    def y_to_synth_norm(self, y):
         '''For spectra fitting in synth domain. Assumes the labels are already normalized.'''
         # Produce synthetic spectrum
         x = self.emulator(y)
