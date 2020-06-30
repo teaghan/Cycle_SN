@@ -401,6 +401,16 @@ class CycleSN(nn.Module):
         z_sh = self.synth_to_z(x)
         # Produce observed spectrum
         return self.z_to_obs(z_sh, self.cur_z_sp)
+    
+    def y_to_synth_norm(self, y, use_cuda=True):
+        '''For spectra fitting in synth domain. Assumes the labels are already normalized.'''
+        # Produce synthetic spectrum
+        x = self.emulator(y)
+        # Normalize the spectrum
+        x = (x - self.x_mean) / self.x_std
+        # Only select last 7167 pixels
+        x = x[:,47:]
+        return x
         
     def rec_and_gen_train_mode(self):
         self.emulator.eval()
