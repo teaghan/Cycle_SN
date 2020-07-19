@@ -2,8 +2,6 @@
 
 
 ### Code
-
-Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
   1. Download the synthetic (csn_kurucz.h5) and observed (csn_apogee.h5) training sets from [here](https://www.canfar.net/storage/list/starnet/public/Cycle_SN) and place it in the [data directory](../data/).
   
