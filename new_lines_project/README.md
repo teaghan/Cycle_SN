@@ -14,8 +14,6 @@ One application of the Cycle-StarNet is to utilize the correlations found by the
 We first test our method with a "mock dataset" that is meant to mimic a real-world application. For this, we will mask absorption lines in our synthetic domain and try to let the network correlate these lines - that are present in our observed domain - to information found in the synthetic spectra. To create a controlled setting, we will generate our observed spectra using The Payne and add noise to the data. The synthetic spectra will also be generated from The Payne, but about 30% of the lines will be set to the continuum level.
 
 ### Code
-
-Before beginning training or utilizing Cycle-StarNet, I recommend reading the [technical write-up](../docs/README.md) on the method. After doing this:
   
   1. Download the synthetic (csn_kurucz.h5) and mock observed ( csn_apogee_mock.h5) training sets from [here](https://www.canfar.net/storage/list/starnet/public/Cycle_SN) and place it in the [data directory](../data/).
   
