@@ -8,8 +8,6 @@
 
 -[PyTorch](http://pytorch.org/): `pip install torch torchvision`
 
--[The Payne](https://github.com/tingyuansen/The_Payne): `pip install The_Payne`
-
 -h5py: `pip install h5py`
 
 -scikit-learn: `pip install -U scikit-learn`
@@ -17,7 +15,7 @@
 ## Generative and Interpretable Deep Learning for Stellar Spectra
 
 
-This project aims to bridge the gap between two different sets of stellar spectra. Although the underlying physics that produces the two sets may be the same, the data can visually appear very different for a variety of reasons. Cycle-StarNet is meant to determine the commonalities between two sets of spectra (ie. the physical parameters) and learn how to transform one set of data into the other. Check out the [technical write-up](./docs/README.md), which explains the method in detail; dicusses the training process; provides insight into issues that may arise when transferring the method to other datasets (as well tricks to fix these issue); and shows some applications of the Cycle-StarNet.
+This project aims to bridge the gap between two different sets of stellar spectra. Although the underlying physics that produces the two sets may be the same, the data can visually appear very different for a variety of reasons. Cycle-StarNet is meant to determine the commonalities between two sets of spectra (ie. the physical parameters) and learn how to transform one set of data into the other. 
 
 <p align="center">
   <img width="400" height="300" src="./figures/diagram.png">     
@@ -39,8 +37,6 @@ This project aims to bridge the gap between two different sets of stellar spectr
 
 
 ## Getting Started ##
-
-Before beginning training or utilizing the Cycle-StarNet, I recommend reading the [technical write-up](./docs/README.md) on the method.
 
 To get started with our application of Domain Adaption with real observed spectra, take a look [here](./domain_transfer/).
 
