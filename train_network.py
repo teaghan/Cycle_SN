@@ -61,7 +61,7 @@ data_file_synth = os.path.join(data_dir, config['DATA']['data_file_synth'])
 data_file_obs = os.path.join(data_dir, config['DATA']['data_file_obs'])
 spectra_norm_file = os.path.join(data_dir, config['DATA']['spectra_norm_file'])
 emulator_fn = os.path.join(model_dir, config['DATA']['emulator_fn'])
-
+mask_fn = os.path.join(data_dir, config['DATA']['mask_fn'])
 
 # TRAINING PARAMETERS
 batchsize = int(config['TRAINING']['batchsize'])
@@ -168,11 +168,10 @@ else:
     model.load_state_dict(checkpoint['cycle_model'])
     
 # DATA
-
 if mask_synth_lines:
     print('Using line mask.')
     # Load line mask
-    line_mask = np.load(data_dir+'mock_missing_lines.npz')['total_mask']
+    line_mask = np.load(mask_fn)['total_mask']
     line_mask = torch.from_numpy(np.array(line_mask, dtype=np.uint8))
 else:
     # Don't use line mask
