@@ -38,6 +38,21 @@ This project aims to bridge the gap between two different sets of stellar spectr
 
 ## Getting Started ##
 
+For an in depth explanation on the method and the projects shown here, please checkout our [paper](https://arxiv.org/abs/2007.03109). 
+
 To get started with our application of Domain Adaption with real observed spectra, take a look [here](./domain_transfer/).
 
 To get started with our New Lines Project, take a look [here](./new_lines_project/).
+
+## Citing this work
+
+Here's the BibTeX:
+
+```
+@article{obriain2020cyclestarnet,
+    title={Cycle-StarNet: Bridging the gap between theory and data by leveraging large datasets},
+    author={Teaghan O'Briain and Yuan-Sen Ting and Sébastien Fabbro and Kwang M. Yi and Kim Venn and Spencer Bialek},
+    year={2020},
+    journal={The Astrophysical Journal}
+}
+```
