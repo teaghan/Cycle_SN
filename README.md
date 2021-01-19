@@ -49,10 +49,17 @@ To get started with our New Lines Project, take a look [here](./new_lines_projec
 Here's the BibTeX:
 
 ```
-@article{obriain2020cyclestarnet,
-    title={Cycle-StarNet: Bridging the gap between theory and data by leveraging large datasets},
-    author={Teaghan O'Briain and Yuan-Sen Ting and Sébastien Fabbro and Kwang M. Yi and Kim Venn and Spencer Bialek},
-    year={2020},
-    journal={The Astrophysical Journal}
+@article{OBriain_2021,
+	doi = {10.3847/1538-4357/abca96},
+	url = {https://doi.org/10.3847/1538-4357/abca96},
+	year = 2021,
+	month = {jan},
+	publisher = {American Astronomical Society},
+	volume = {906},
+	number = {2},
+	pages = {130},
+	author = {Teaghan O'Briain and Yuan-Sen Ting and S{\'{e}}bastien Fabbro and Kwang M. Yi and Kim Venn and Spencer Bialek},
+	title = {Cycle-{StarNet}: Bridging the Gap between Theory and Data by Leveraging Large Data Sets},
+	journal = {The Astrophysical Journal}
 }
 ```
